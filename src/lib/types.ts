@@ -1,4 +1,4 @@
-import { Decimal } from '@/generated/prisma/runtime/library'
+import { Decimal } from '@prisma/client/runtime/library'
 
 // Utility type to convert Decimal to number for client-side use
 export type SerializedDecimal<T> = {
