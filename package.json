@@ -33,6 +33,7 @@
     "date-fns": "^4.1.0",
     "devextreme": "^25.1.7",
     "devextreme-react": "^25.1.7",
+    "dotenv": "^17.2.3",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.555.0",
     "next": "16.0.7",
