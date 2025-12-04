@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         otherExpenses: true,
         excessCollection: true,
       },
-      _count: { id: true },
+      _count: true,
       _avg: {
         totalCollection: true,
         dieselCost: true,
@@ -61,8 +61,8 @@ export async function GET(request: NextRequest) {
 
     const maintenanceAgg = await prisma.maintenanceRecord.aggregate({
       where: maintenanceWhere,
-      _sum: { cost: true },
-      _count: { id: true },
+      _sum: { totalCost: true },
+      _count: true,
     })
 
     // Get spare parts costs
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
     const partsAgg = await prisma.sparePart.aggregate({
       where: partsWhere,
       _sum: { totalCost: true },
-      _count: { id: true },
+      _count: true,
     })
 
     // Get bus count
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     const totalAssigneeShare = dailyAgg._sum.assigneeShare?.toNumber() || 0
     const totalDriverShare = dailyAgg._sum.driverShare?.toNumber() || 0
     const totalOtherExpenses = dailyAgg._sum.otherExpenses?.toNumber() || 0
-    const totalMaintenanceCost = maintenanceAgg._sum.cost?.toNumber() || 0
+    const totalMaintenanceCost = maintenanceAgg._sum.totalCost?.toNumber() || 0
     const totalPartsCost = partsAgg._sum.totalCost?.toNumber() || 0
 
     const netIncome =
@@ -126,9 +126,9 @@ export async function GET(request: NextRequest) {
       counts: {
         buses: busCount,
         drivers: driverCount,
-        dailyRecords: dailyAgg._count.id,
-        maintenanceRecords: maintenanceAgg._count.id,
-        spareParts: partsAgg._count.id,
+        dailyRecords: dailyAgg._count,
+        maintenanceRecords: maintenanceAgg._count,
+        spareParts: partsAgg._count,
       },
       collections: {
         total: totalCollection,

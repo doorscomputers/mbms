@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,11 +11,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate')
     const limit = parseInt(searchParams.get('limit') || '100')
 
-    const where: {
-      busId?: string
-      partType?: unknown
-      purchaseDate?: { gte?: Date; lte?: Date }
-    } = {}
+    const where: Prisma.SparePartWhereInput = {}
 
     if (busId) where.busId = busId
     if (partType) where.partType = partType

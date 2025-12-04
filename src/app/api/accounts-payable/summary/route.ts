@@ -13,14 +13,14 @@ export async function GET(request: NextRequest) {
     const unpaidAgg = await prisma.accountsPayable.aggregate({
       where: { ...where, isPaid: false },
       _sum: { amount: true },
-      _count: { id: true },
+      _count: true,
     })
 
     // Get paid totals
     const paidAgg = await prisma.accountsPayable.aggregate({
       where: { ...where, isPaid: true },
       _sum: { amount: true, paidAmount: true },
-      _count: { id: true },
+      _count: true,
     })
 
     // Get by category (unpaid)
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       by: ['category'],
       where: { ...where, isPaid: false },
       _sum: { amount: true },
-      _count: { id: true },
+      _count: true,
     })
 
     // Get overdue (unpaid with dueDate in the past)
@@ -39,20 +39,20 @@ export async function GET(request: NextRequest) {
         dueDate: { lt: new Date() },
       },
       _sum: { amount: true },
-      _count: { id: true },
+      _count: true,
     })
 
     const summary = {
       totalUnpaid: unpaidAgg._sum.amount?.toNumber() || 0,
-      unpaidCount: unpaidAgg._count.id,
+      unpaidCount: unpaidAgg._count,
       totalPaid: paidAgg._sum.paidAmount?.toNumber() || 0,
-      paidCount: paidAgg._count.id,
+      paidCount: paidAgg._count,
       overdueAmount: overdue._sum.amount?.toNumber() || 0,
-      overdueCount: overdue._count.id,
-      byCategory: unpaidByCategory.map((cat) => ({
+      overdueCount: overdue._count,
+      byCategory: unpaidByCategory.map((cat: { category: string; _sum: { amount: { toNumber: () => number } | null }; _count: number }) => ({
         category: cat.category,
         amount: cat._sum.amount?.toNumber() || 0,
-        count: cat._count.id,
+        count: cat._count,
       })),
     }
 

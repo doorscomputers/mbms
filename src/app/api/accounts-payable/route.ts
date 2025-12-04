@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { ExpenseCategory, Prisma } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,14 +10,10 @@ export async function GET(request: NextRequest) {
     const isPaid = searchParams.get('isPaid')
     const limit = parseInt(searchParams.get('limit') || '100')
 
-    const where: {
-      busId?: string
-      category?: unknown
-      isPaid?: boolean
-    } = {}
+    const where: Prisma.AccountsPayableWhereInput = {}
 
     if (busId) where.busId = busId
-    if (category) where.category = category
+    if (category) where.category = category as ExpenseCategory
     if (isPaid !== null && isPaid !== undefined) {
       where.isPaid = isPaid === 'true'
     }

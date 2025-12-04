@@ -43,13 +43,26 @@ export async function PUT(
       date,
       maintenanceType,
       description,
-      cost,
+      sparePartsCost,
+      laborCost,
+      miscellaneousCost,
+      totalCost,
       odometerReading,
       serviceProvider,
+      mechanicName,
+      remarks,
       nextServiceDate,
       nextServiceOdometer,
       notes,
     } = body
+
+    // Calculate total if individual costs provided
+    const partsC = sparePartsCost !== undefined ? parseFloat(sparePartsCost) : undefined
+    const laborC = laborCost !== undefined ? parseFloat(laborCost) : undefined
+    const miscC = miscellaneousCost !== undefined ? parseFloat(miscellaneousCost) : undefined
+    const calculatedTotal = totalCost !== undefined ? parseFloat(totalCost) :
+      (partsC !== undefined || laborC !== undefined || miscC !== undefined) ?
+      (partsC || 0) + (laborC || 0) + (miscC || 0) : undefined
 
     const record = await prisma.maintenanceRecord.update({
       where: { id },
@@ -58,9 +71,14 @@ export async function PUT(
         date: date ? new Date(date) : undefined,
         maintenanceType,
         description: description || null,
-        cost: cost !== undefined ? parseFloat(cost) : undefined,
+        sparePartsCost: partsC,
+        laborCost: laborC,
+        miscellaneousCost: miscC,
+        totalCost: calculatedTotal,
         odometerReading: odometerReading ? parseFloat(odometerReading) : null,
         serviceProvider: serviceProvider || null,
+        mechanicName: mechanicName || null,
+        remarks: remarks || null,
         nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
         nextServiceOdometer: nextServiceOdometer ? parseFloat(nextServiceOdometer) : null,
         notes: notes || null,

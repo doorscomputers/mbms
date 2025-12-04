@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { MaintenanceType, Prisma } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,14 +11,10 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate')
     const limit = parseInt(searchParams.get('limit') || '100')
 
-    const where: {
-      busId?: string
-      maintenanceType?: unknown
-      date?: { gte?: Date; lte?: Date }
-    } = {}
+    const where: Prisma.MaintenanceRecordWhereInput = {}
 
     if (busId) where.busId = busId
-    if (maintenanceType) where.maintenanceType = maintenanceType
+    if (maintenanceType) where.maintenanceType = maintenanceType as MaintenanceType
     if (startDate || endDate) {
       where.date = {}
       if (startDate) where.date.gte = new Date(startDate)

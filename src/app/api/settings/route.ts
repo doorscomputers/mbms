@@ -8,7 +8,7 @@ export async function GET() {
 
     // Merge with defaults for any missing settings
     const settingsMap: Record<string, string> = { ...DEFAULT_SETTINGS }
-    settings.forEach((s) => {
+    settings.forEach((s: { key: string; value: string }) => {
       settingsMap[s.key] = s.value
     })
 
