@@ -47,7 +47,7 @@ const formSchema = z.object({
   nextServiceDate: z.string().optional(),
   nextServiceOdometer: z.string().optional(),
   notes: z.string().optional(),
-  createPayable: z.boolean().default(false),
+  createPayable: z.boolean(),
 })
 
 type FormData = z.infer<typeof formSchema>
