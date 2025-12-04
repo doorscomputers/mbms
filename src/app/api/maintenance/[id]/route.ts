@@ -1,0 +1,111 @@
+import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const record = await prisma.maintenanceRecord.findUnique({
+      where: { id },
+      include: {
+        bus: { include: { operator: true } },
+      },
+    })
+
+    if (!record) {
+      return NextResponse.json(
+        { success: false, error: 'Maintenance record not found' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({ success: true, data: record })
+  } catch (error) {
+    console.error('Error fetching maintenance record:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch maintenance record' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const body = await request.json()
+    const {
+      busId,
+      date,
+      maintenanceType,
+      description,
+      cost,
+      odometerReading,
+      serviceProvider,
+      nextServiceDate,
+      nextServiceOdometer,
+      notes,
+    } = body
+
+    const record = await prisma.maintenanceRecord.update({
+      where: { id },
+      data: {
+        busId,
+        date: date ? new Date(date) : undefined,
+        maintenanceType,
+        description: description || null,
+        cost: cost !== undefined ? parseFloat(cost) : undefined,
+        odometerReading: odometerReading ? parseFloat(odometerReading) : null,
+        serviceProvider: serviceProvider || null,
+        nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
+        nextServiceOdometer: nextServiceOdometer ? parseFloat(nextServiceOdometer) : null,
+        notes: notes || null,
+      },
+      include: {
+        bus: { include: { operator: true } },
+      },
+    })
+
+    return NextResponse.json({ success: true, data: record })
+  } catch (error: unknown) {
+    console.error('Error updating maintenance record:', error)
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
+      return NextResponse.json(
+        { success: false, error: 'Record not found' },
+        { status: 404 }
+      )
+    }
+    return NextResponse.json(
+      { success: false, error: 'Failed to update maintenance record' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    await prisma.maintenanceRecord.delete({ where: { id } })
+
+    return NextResponse.json({ success: true, message: 'Record deleted' })
+  } catch (error: unknown) {
+    console.error('Error deleting maintenance record:', error)
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
+      return NextResponse.json(
+        { success: false, error: 'Record not found' },
+        { status: 404 }
+      )
+    }
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete maintenance record' },
+      { status: 500 }
+    )
+  }
+}

@@ -1,0 +1,291 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          UserRole  @default(STAFF)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  STAFF
+}
+
+// ============================================
+// OPERATORS (ASSIGNEES)
+// ============================================
+
+model Operator {
+  id            String    @id @default(cuid())
+  name          String
+  contactNumber String?
+  address       String?
+  sharePercent  Decimal   @default(0) @db.Decimal(5, 2) // Percentage share of collections
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  buses         Bus[]
+
+  @@map("operators")
+}
+
+// ============================================
+// BUSES
+// ============================================
+
+model Bus {
+  id            String    @id @default(cuid())
+  busNumber     String    @unique
+  plateNumber   String?   @unique
+  model         String?
+  capacity      Int?
+  operatorId    String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  operator          Operator?           @relation(fields: [operatorId], references: [id])
+  dailyRecords      DailyRecord[]
+  maintenanceRecords MaintenanceRecord[]
+  spareParts        SparePart[]
+  accountsPayable   AccountsPayable[]
+
+  @@map("buses")
+}
+
+// ============================================
+// DRIVERS
+// ============================================
+
+model Driver {
+  id            String    @id @default(cuid())
+  name          String
+  licenseNumber String?   @unique
+  contactNumber String?
+  address       String?
+  sharePercent  Decimal   @default(0) @db.Decimal(5, 2) // Percentage share of collections
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  dailyRecords  DailyRecord[]
+
+  @@map("drivers")
+}
+
+// ============================================
+// DAILY RECORDS (Main daily tracking)
+// ============================================
+
+model DailyRecord {
+  id                String    @id @default(cuid())
+  date              DateTime  @db.Date
+  busId             String
+  driverId          String
+
+  // Cash Collections
+  totalCollection   Decimal   @default(0) @db.Decimal(12, 2)
+  passengerCount    Int       @default(0)
+  tripCount         Int       @default(0)
+
+  // Diesel Consumption
+  dieselLiters      Decimal   @default(0) @db.Decimal(10, 2)
+  dieselCost        Decimal   @default(0) @db.Decimal(12, 2)
+  odometerStart     Decimal   @default(0) @db.Decimal(10, 2)
+  odometerEnd       Decimal   @default(0) @db.Decimal(10, 2)
+
+  // Minimum Collection (can override global setting per record)
+  minimumCollection Decimal   @default(6500) @db.Decimal(12, 2)
+
+  // Coop Contribution (variable amount)
+  coopContribution  Decimal   @default(0) @db.Decimal(12, 2)
+
+  // Computed Shares (stored for history/audit)
+  assigneeShare     Decimal   @default(0) @db.Decimal(12, 2) // Operator/Owner share
+  driverShare       Decimal   @default(0) @db.Decimal(12, 2)
+  excessCollection  Decimal   @default(0) @db.Decimal(12, 2) // Amount above minimum
+
+  // Other Expenses
+  otherExpenses     Decimal   @default(0) @db.Decimal(12, 2)
+  expenseNotes      String?
+
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  bus               Bus       @relation(fields: [busId], references: [id])
+  driver            Driver    @relation(fields: [driverId], references: [id])
+
+  @@unique([date, busId]) // One record per bus per day
+  @@map("daily_records")
+}
+
+// ============================================
+// MAINTENANCE RECORDS
+// ============================================
+
+model MaintenanceRecord {
+  id                String              @id @default(cuid())
+  busId             String
+  date              DateTime            @db.Date
+  maintenanceType   MaintenanceType
+  description       String?
+
+  // Cost breakdown by category
+  sparePartsCost    Decimal             @default(0) @db.Decimal(12, 2)
+  laborCost         Decimal             @default(0) @db.Decimal(12, 2)
+  miscellaneousCost Decimal             @default(0) @db.Decimal(12, 2)
+  totalCost         Decimal             @default(0) @db.Decimal(12, 2) // Auto-calculated sum
+
+  odometerReading   Decimal?            @db.Decimal(10, 2)
+  serviceProvider   String?             // Shop or mechanic name
+  mechanicName      String?             // Mechanic who did the job
+  remarks           String?             // Job remarks from mechanic
+
+  nextServiceDate   DateTime?           @db.Date
+  nextServiceOdometer Decimal?          @db.Decimal(10, 2)
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  bus               Bus                 @relation(fields: [busId], references: [id])
+  accountsPayable   AccountsPayable[]
+
+  @@map("maintenance_records")
+}
+
+enum MaintenanceType {
+  CHANGE_OIL
+  TIRE_REPLACEMENT
+  BRAKE_SERVICE
+  ENGINE_REPAIR
+  TRANSMISSION
+  ELECTRICAL
+  AIRCON
+  BODY_REPAIR
+  GENERAL_SERVICE
+  OTHER
+}
+
+// ============================================
+// PART TYPE CONFIGURATION (Dynamic part types)
+// ============================================
+
+model PartTypeConfig {
+  id            String    @id @default(cuid())
+  code          String    @unique // e.g., "TIRE", "ENGINE_PART"
+  label         String    // e.g., "Tire", "Engine Part"
+  description   String?
+  isActive      Boolean   @default(true)
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("part_type_configs")
+}
+
+// ============================================
+// SPARE PARTS TRACKING
+// ============================================
+
+model SparePart {
+  id                String    @id @default(cuid())
+  busId             String
+  partName          String
+  partType          String    // Now a string referencing PartTypeConfig.code
+  brand             String?
+  quantity          Int       @default(1)
+  unitCost          Decimal   @default(0) @db.Decimal(12, 2)
+  totalCost         Decimal   @default(0) @db.Decimal(12, 2)
+  purchaseDate      DateTime  @db.Date
+  installedDate     DateTime? @db.Date
+  supplier          String?
+  warrantyExpiry    DateTime? @db.Date
+  expectedLifeDays  Int?      // Expected lifespan in days (for tracking replacement cycles)
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  bus               Bus       @relation(fields: [busId], references: [id])
+  accountsPayable   AccountsPayable[]
+
+  @@map("spare_parts")
+}
+
+// ============================================
+// ACCOUNTS PAYABLE (Track unpaid maintenance/parts)
+// ============================================
+
+model AccountsPayable {
+  id                  String            @id @default(cuid())
+  busId               String
+  category            ExpenseCategory
+  description         String
+  amount              Decimal           @db.Decimal(12, 2)
+  dueDate             DateTime?         @db.Date
+  paidAmount          Decimal           @default(0) @db.Decimal(12, 2)
+  isPaid              Boolean           @default(false)
+  paidDate            DateTime?         @db.Date
+  supplier            String?
+  invoiceNumber       String?
+  notes               String?
+
+  // Link to source record (optional)
+  maintenanceId       String?
+  sparePartId         String?
+
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  bus                 Bus               @relation(fields: [busId], references: [id])
+  maintenance         MaintenanceRecord? @relation(fields: [maintenanceId], references: [id])
+  sparePart           SparePart?        @relation(fields: [sparePartId], references: [id])
+
+  @@map("accounts_payable")
+}
+
+enum ExpenseCategory {
+  SPARE_PARTS
+  LABOR
+  MISCELLANEOUS
+  DIESEL
+  OTHER
+}
+
+// ============================================
+// SETTINGS (For configurable values)
+// ============================================
+
+model Setting {
+  id            String    @id @default(cuid())
+  key           String    @unique
+  value         String
+  description   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("settings")
+}
