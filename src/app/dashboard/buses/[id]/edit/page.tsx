@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
 import { ArrowLeft, Save, Trash2 } from "lucide-react"
-import Link from "next/link"
 
 interface Operator {
   id: string
@@ -20,12 +20,12 @@ interface Operator {
 export default function EditBusPage() {
   const router = useRouter()
   const params = useParams()
-  const busId = params.id as string
+  const id = params.id as string
 
   const [operators, setOperators] = useState<Operator[]>([])
-  const [loading, setLoading] = useState(false)
-  const [fetching, setFetching] = useState(true)
-  const [formData, setFormData] = useState({
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
     busNumber: "",
     plateNumber: "",
     model: "",
@@ -36,87 +36,84 @@ export default function EditBusPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/operators").then(res => res.json()),
-      fetch(`/api/buses/${busId}`).then(res => res.json()),
-    ]).then(([operatorsData, busData]) => {
-      if (operatorsData.success) setOperators(operatorsData.data)
+      fetch("/api/operators").then((r) => r.json()),
+      fetch(`/api/buses/${id}`).then((r) => r.json()),
+    ]).then(([opsData, busData]) => {
+      if (opsData.success) setOperators(opsData.data)
       if (busData.success) {
-        const bus = busData.data
-        setFormData({
-          busNumber: bus.busNumber || "",
-          plateNumber: bus.plateNumber || "",
-          model: bus.model || "",
-          capacity: bus.capacity?.toString() || "",
-          operatorId: bus.operatorId || "",
-          isActive: bus.isActive,
+        const b = busData.data
+        setForm({
+          busNumber: b.busNumber || "",
+          plateNumber: b.plateNumber || "",
+          model: b.model || "",
+          capacity: b.capacity?.toString() || "",
+          operatorId: b.operatorId || "",
+          isActive: b.isActive,
         })
       }
-      setFetching(false)
+      setLoading(false)
     })
-  }, [busId])
+  }, [id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.busNumber.trim()) {
+    if (!form.busNumber.trim()) {
       toast.error("Bus number is required")
       return
     }
 
-    setLoading(true)
+    setSaving(true)
     try {
-      const res = await fetch(`/api/buses/${busId}`, {
+      const res = await fetch(`/api/buses/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          busNumber: formData.busNumber,
-          plateNumber: formData.plateNumber || null,
-          model: formData.model || null,
-          capacity: formData.capacity ? parseInt(formData.capacity) : null,
-          operatorId: formData.operatorId || null,
-          isActive: formData.isActive,
+          busNumber: form.busNumber,
+          plateNumber: form.plateNumber || null,
+          model: form.model || null,
+          capacity: form.capacity ? parseInt(form.capacity) : null,
+          operatorId: form.operatorId || null,
+          isActive: form.isActive,
         }),
       })
-      const result = await res.json()
-      if (result.success) {
+      const data = await res.json()
+      if (data.success) {
         toast.success("Bus updated successfully")
         router.push("/dashboard/buses")
       } else {
-        toast.error(result.error || "Failed to update bus")
+        toast.error(data.error || "Failed to update bus")
       }
     } catch {
       toast.error("Failed to update bus")
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to deactivate this bus?")) return
-
-    setLoading(true)
+    if (!confirm("Are you sure you want to delete this bus?")) return
+    setSaving(true)
     try {
-      const res = await fetch(`/api/buses/${busId}`, { method: "DELETE" })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Bus deactivated successfully")
+      const res = await fetch(`/api/buses/${id}`, { method: "DELETE" })
+      const data = await res.json()
+      if (data.success) {
+        toast.success("Bus deleted")
         router.push("/dashboard/buses")
       } else {
-        toast.error(result.error || "Failed to delete bus")
+        toast.error(data.error || "Failed to delete")
       }
     } catch {
-      toast.error("Failed to delete bus")
+      toast.error("Failed to delete")
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
-  if (fetching) {
+  if (loading) {
     return (
       <div className="flex flex-col">
         <Header title="Edit Bus" />
-        <div className="flex-1 p-4 md:p-6">
-          <p>Loading...</p>
-        </div>
+        <div className="flex-1 p-4 md:p-6">Loading...</div>
       </div>
     )
   }
@@ -144,10 +141,8 @@ export default function EditBusPage() {
                 <Label htmlFor="busNumber">Bus Number *</Label>
                 <Input
                   id="busNumber"
-                  value={formData.busNumber}
-                  onChange={(e) => setFormData({ ...formData, busNumber: e.target.value })}
-                  placeholder="Enter bus number"
-                  required
+                  value={form.busNumber}
+                  onChange={(e) => setForm({ ...form, busNumber: e.target.value })}
                 />
               </div>
 
@@ -155,9 +150,8 @@ export default function EditBusPage() {
                 <Label htmlFor="plateNumber">Plate Number</Label>
                 <Input
                   id="plateNumber"
-                  value={formData.plateNumber}
-                  onChange={(e) => setFormData({ ...formData, plateNumber: e.target.value })}
-                  placeholder="Enter plate number"
+                  value={form.plateNumber}
+                  onChange={(e) => setForm({ ...form, plateNumber: e.target.value })}
                 />
               </div>
 
@@ -165,9 +159,8 @@ export default function EditBusPage() {
                 <Label htmlFor="model">Model</Label>
                 <Input
                   id="model"
-                  value={formData.model}
-                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  placeholder="Enter model"
+                  value={form.model}
+                  onChange={(e) => setForm({ ...form, model: e.target.value })}
                 />
               </div>
 
@@ -176,44 +169,36 @@ export default function EditBusPage() {
                 <Input
                   id="capacity"
                   type="number"
-                  value={formData.capacity}
-                  onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-                  placeholder="Enter capacity"
+                  value={form.capacity}
+                  onChange={(e) => setForm({ ...form, capacity: e.target.value })}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="operator">Operator</Label>
-                <Select
-                  value={formData.operatorId}
-                  onValueChange={(value) => setFormData({ ...formData, operatorId: value })}
-                >
+                <Label htmlFor="operatorId">Operator</Label>
+                <Select value={form.operatorId} onValueChange={(v) => setForm({ ...form, operatorId: v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select operator" />
                   </SelectTrigger>
                   <SelectContent>
                     {operators.map((op) => (
-                      <SelectItem key={op.id} value={op.id}>
-                        {op.name}
-                      </SelectItem>
+                      <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="flex gap-2 pt-4">
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={saving}>
                   <Save className="h-4 w-4 mr-2" />
-                  {loading ? "Saving..." : "Save Changes"}
+                  {saving ? "Saving..." : "Save"}
                 </Button>
-                <Button type="button" variant="destructive" onClick={handleDelete} disabled={loading}>
+                <Button type="button" variant="destructive" onClick={handleDelete} disabled={saving}>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
                 </Button>
                 <Link href="/dashboard/buses">
-                  <Button type="button" variant="outline">
-                    Cancel
-                  </Button>
+                  <Button type="button" variant="outline">Cancel</Button>
                 </Link>
               </div>
             </form>

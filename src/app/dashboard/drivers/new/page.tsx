@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,12 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
 import { ArrowLeft, Save } from "lucide-react"
-import Link from "next/link"
 
 export default function NewDriverPage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
     name: "",
     licenseNumber: "",
     contactNumber: "",
@@ -24,35 +24,35 @@ export default function NewDriverPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name.trim()) {
-      toast.error("Driver name is required")
+    if (!form.name.trim()) {
+      toast.error("Name is required")
       return
     }
 
-    setLoading(true)
+    setSaving(true)
     try {
       const res = await fetch("/api/drivers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: formData.name,
-          licenseNumber: formData.licenseNumber || null,
-          contactNumber: formData.contactNumber || null,
-          address: formData.address || null,
-          sharePercent: parseFloat(formData.sharePercent) || 40,
+          name: form.name,
+          licenseNumber: form.licenseNumber || null,
+          contactNumber: form.contactNumber || null,
+          address: form.address || null,
+          sharePercent: parseFloat(form.sharePercent) || 40,
         }),
       })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Driver added successfully")
+      const data = await res.json()
+      if (data.success) {
+        toast.success("Driver created successfully")
         router.push("/dashboard/drivers")
       } else {
-        toast.error(result.error || "Failed to add driver")
+        toast.error(data.error || "Failed to create driver")
       }
     } catch {
-      toast.error("Failed to add driver")
+      toast.error("Failed to create driver")
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
@@ -79,10 +79,9 @@ export default function NewDriverPage() {
                 <Label htmlFor="name">Full Name *</Label>
                 <Input
                   id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter full name"
-                  required
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g., Juan Dela Cruz"
                 />
               </div>
 
@@ -90,9 +89,9 @@ export default function NewDriverPage() {
                 <Label htmlFor="licenseNumber">License Number</Label>
                 <Input
                   id="licenseNumber"
-                  value={formData.licenseNumber}
-                  onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
-                  placeholder="Enter license number"
+                  value={form.licenseNumber}
+                  onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })}
+                  placeholder="e.g., N01-12-345678"
                 />
               </div>
 
@@ -100,9 +99,9 @@ export default function NewDriverPage() {
                 <Label htmlFor="contactNumber">Contact Number</Label>
                 <Input
                   id="contactNumber"
-                  value={formData.contactNumber}
-                  onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
-                  placeholder="Enter contact number"
+                  value={form.contactNumber}
+                  onChange={(e) => setForm({ ...form, contactNumber: e.target.value })}
+                  placeholder="e.g., 09171234567"
                 />
               </div>
 
@@ -110,9 +109,9 @@ export default function NewDriverPage() {
                 <Label htmlFor="address">Address</Label>
                 <Input
                   id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Enter address"
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  placeholder="e.g., 123 Main St, City"
                 />
               </div>
 
@@ -122,21 +121,18 @@ export default function NewDriverPage() {
                   id="sharePercent"
                   type="number"
                   step="0.01"
-                  value={formData.sharePercent}
-                  onChange={(e) => setFormData({ ...formData, sharePercent: e.target.value })}
-                  placeholder="Enter share percent"
+                  value={form.sharePercent}
+                  onChange={(e) => setForm({ ...form, sharePercent: e.target.value })}
                 />
               </div>
 
               <div className="flex gap-2 pt-4">
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={saving}>
                   <Save className="h-4 w-4 mr-2" />
-                  {loading ? "Saving..." : "Save Driver"}
+                  {saving ? "Saving..." : "Save"}
                 </Button>
                 <Link href="/dashboard/drivers">
-                  <Button type="button" variant="outline">
-                    Cancel
-                  </Button>
+                  <Button type="button" variant="outline">Cancel</Button>
                 </Link>
               </div>
             </form>

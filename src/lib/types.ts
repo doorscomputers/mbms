@@ -7,18 +7,25 @@ export type SerializedDecimal<T> = {
 
 // Settings keys for the application
 export const SETTINGS_KEYS = {
-  MINIMUM_COLLECTION: 'minimum_collection',
+  WEEKDAY_MINIMUM_COLLECTION: 'weekday_minimum_collection',
+  SUNDAY_MINIMUM_COLLECTION: 'sunday_minimum_collection',
   DEFAULT_COOP_CONTRIBUTION: 'default_coop_contribution',
+  DRIVER_BASE_PAY: 'driver_base_pay',
+  // Deprecated but kept for backwards compatibility
+  MINIMUM_COLLECTION: 'minimum_collection',
   DEFAULT_DRIVER_SHARE_PERCENT: 'default_driver_share_percent',
   DEFAULT_ASSIGNEE_SHARE_PERCENT: 'default_assignee_share_percent',
 } as const
 
 // Default values
 export const DEFAULT_SETTINGS = {
-  [SETTINGS_KEYS.MINIMUM_COLLECTION]: '6500',
-  [SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION]: '0',
-  [SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT]: '0',
-  [SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT]: '0',
+  [SETTINGS_KEYS.WEEKDAY_MINIMUM_COLLECTION]: '6000',
+  [SETTINGS_KEYS.SUNDAY_MINIMUM_COLLECTION]: '5000',
+  [SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION]: '1852',
+  [SETTINGS_KEYS.DRIVER_BASE_PAY]: '800',
+  [SETTINGS_KEYS.MINIMUM_COLLECTION]: '6000',
+  [SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT]: '40',
+  [SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT]: '60',
 } as const
 
 // Maintenance type labels
@@ -127,39 +134,71 @@ export interface ApiResponse<T = unknown> {
   message?: string
 }
 
+// Helper to check if a date is Sunday
+export function isSunday(date: Date | string): boolean {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return d.getDay() === 0
+}
+
+// Get minimum collection based on day of week
+export function getMinimumCollectionForDate(
+  date: Date | string,
+  weekdayMinimum: number,
+  sundayMinimum: number
+): number {
+  return isSunday(date) ? sundayMinimum : weekdayMinimum
+}
+
 // Computation types
 export interface DailyComputation {
-  totalCollection: number
-  minimumCollection: number
-  excessCollection: number
+  totalCollection: number      // Gross collection
+  minimumCollection: number    // 6000 (weekday) or 5000 (Sunday)
+  excessCollection: number     // EXTRA = totalCollection - minimumCollection
   dieselCost: number
-  coopContribution: number
+  coopContribution: number     // 0 on Sunday
+  driverBasePay: number        // 800
+  driverExtraShare: number     // EXTRA × 40%
+  driverShare: number          // driverBasePay + driverExtraShare
+  operatorExtraShare: number   // EXTRA × 60%
+  assigneeShare: number        // min - driverBase - diesel - coop + operatorExtraShare
+  // Legacy fields for backwards compatibility
   otherExpenses: number
-  assigneeShare: number
-  driverShare: number
   netIncome: number
 }
 
+/**
+ * Calculate shares using the correct formula:
+ *
+ * EXTRA = Gross Collection - Minimum Collection
+ * Driver Share = Driver Base (800) + (EXTRA × 40%)
+ * Operator Share = Minimum - Driver Base - Diesel - Coop + (EXTRA × 60%)
+ *
+ * On Sundays: Minimum = 5000, Coop = 0
+ * On Weekdays: Minimum = 6000, Coop = from settings
+ */
 export function calculateShares(
   totalCollection: number,
   dieselCost: number,
   coopContribution: number,
   otherExpenses: number,
   minimumCollection: number,
-  assigneeSharePercent: number,
-  driverSharePercent: number
+  driverBasePay: number = 800,
+  operatorSharePercent: number = 60,
+  driverSharePercent: number = 40
 ): DailyComputation {
+  // EXTRA = Collection above minimum
   const excessCollection = Math.max(0, totalCollection - minimumCollection)
 
-  // Net after deductions
-  const netAfterExpenses = totalCollection - dieselCost - coopContribution - otherExpenses
+  // Driver gets base pay + 40% of EXTRA
+  const driverExtraShare = excessCollection * (driverSharePercent / 100)
+  const driverShare = driverBasePay + driverExtraShare
 
-  // Calculate shares based on percentages
-  const assigneeShare = (netAfterExpenses * assigneeSharePercent) / 100
-  const driverShare = (netAfterExpenses * driverSharePercent) / 100
+  // Operator gets: Minimum - DriverBase - Diesel - Coop + 60% of EXTRA
+  const operatorExtraShare = excessCollection * (operatorSharePercent / 100)
+  const assigneeShare = minimumCollection - driverBasePay - dieselCost - coopContribution + operatorExtraShare
 
-  // Remaining net income
-  const netIncome = netAfterExpenses - assigneeShare - driverShare
+  // Net income is what's left (should be 0 if formula is correct)
+  const netIncome = totalCollection - driverShare - assigneeShare - dieselCost - coopContribution - otherExpenses
 
   return {
     totalCollection,
@@ -167,9 +206,12 @@ export function calculateShares(
     excessCollection,
     dieselCost,
     coopContribution,
-    otherExpenses,
-    assigneeShare,
+    driverBasePay,
+    driverExtraShare,
     driverShare,
+    operatorExtraShare,
+    assigneeShare,
+    otherExpenses,
     netIncome,
   }
 }

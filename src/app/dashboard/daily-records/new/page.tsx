@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
-import { formatCurrency, calculateShares } from "@/lib/types"
+import { formatCurrency, calculateShares, isSunday, SETTINGS_KEYS, DEFAULT_SETTINGS } from "@/lib/types"
 import { ArrowLeft, Calculator } from "lucide-react"
 import Link from "next/link"
 
@@ -63,17 +63,37 @@ interface Driver {
   sharePercent: number
 }
 
+interface Settings {
+  weekdayMinimum: number
+  sundayMinimum: number
+  driverBasePay: number
+  defaultCoop: number
+  operatorSharePercent: number
+  driverSharePercent: number
+}
+
 export default function NewDailyRecordPage() {
   const router = useRouter()
   const [buses, setBuses] = useState<Bus[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(false)
   const [computation, setComputation] = useState<ReturnType<typeof calculateShares> | null>(null)
+  const [settings, setSettings] = useState<Settings>({
+    weekdayMinimum: 6000,
+    sundayMinimum: 5000,
+    driverBasePay: 800,
+    defaultCoop: 1852,
+    operatorSharePercent: 60,
+    driverSharePercent: 40,
+  })
+
+  const today = new Date()
+  const isTodaySunday = isSunday(today)
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date: new Date().toISOString().split("T")[0],
+      date: today.toISOString().split("T")[0],
       busId: "",
       driverId: "",
       totalCollection: "",
@@ -83,8 +103,8 @@ export default function NewDailyRecordPage() {
       passengerCount: "",
       odometerStart: "",
       odometerEnd: "",
-      minimumCollection: "6500",
-      coopContribution: "0",
+      minimumCollection: isTodaySunday ? "5000" : "6000",
+      coopContribution: isTodaySunday ? "0" : "1852",
       otherExpenses: "0",
       expenseNotes: "",
       notes: "",
@@ -98,37 +118,65 @@ export default function NewDailyRecordPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [busesRes, driversRes] = await Promise.all([
+        const [busesRes, driversRes, settingsRes] = await Promise.all([
           fetch("/api/buses?includeOperator=true"),
           fetch("/api/drivers"),
+          fetch("/api/settings"),
         ])
 
         const busesData = await busesRes.json()
         const driversData = await driversRes.json()
+        const settingsData = await settingsRes.json()
 
         if (busesData.success) setBuses(busesData.data)
         if (driversData.success) setDrivers(driversData.data)
+        if (settingsData.success) {
+          const s = settingsData.data
+          const newSettings = {
+            weekdayMinimum: parseFloat(s[SETTINGS_KEYS.WEEKDAY_MINIMUM_COLLECTION] || DEFAULT_SETTINGS[SETTINGS_KEYS.WEEKDAY_MINIMUM_COLLECTION]),
+            sundayMinimum: parseFloat(s[SETTINGS_KEYS.SUNDAY_MINIMUM_COLLECTION] || DEFAULT_SETTINGS[SETTINGS_KEYS.SUNDAY_MINIMUM_COLLECTION]),
+            driverBasePay: parseFloat(s[SETTINGS_KEYS.DRIVER_BASE_PAY] || DEFAULT_SETTINGS[SETTINGS_KEYS.DRIVER_BASE_PAY]),
+            defaultCoop: parseFloat(s[SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION] || DEFAULT_SETTINGS[SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION]),
+            operatorSharePercent: parseFloat(s[SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT] || DEFAULT_SETTINGS[SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT]),
+            driverSharePercent: parseFloat(s[SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT] || DEFAULT_SETTINGS[SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT]),
+          }
+          setSettings(newSettings)
+
+          // Update form defaults based on settings
+          const selectedDate = form.getValues("date")
+          const sunday = isSunday(new Date(selectedDate))
+          form.setValue("minimumCollection", sunday ? newSettings.sundayMinimum.toString() : newSettings.weekdayMinimum.toString())
+          form.setValue("coopContribution", sunday ? "0" : newSettings.defaultCoop.toString())
+        }
       } catch (error) {
         console.error("Error fetching data:", error)
         toast.error("Failed to load data")
       }
     }
     fetchData()
-  }, [])
+  }, [form])
+
+  // Update minimum collection and coop when date changes
+  useEffect(() => {
+    const selectedDate = watchedValues.date
+    if (selectedDate) {
+      const sunday = isSunday(new Date(selectedDate))
+      form.setValue("minimumCollection", sunday ? settings.sundayMinimum.toString() : settings.weekdayMinimum.toString())
+      form.setValue("coopContribution", sunday ? "0" : settings.defaultCoop.toString())
+    }
+  }, [watchedValues.date, settings, form])
 
   // Calculate shares whenever relevant values change
   useEffect(() => {
-    const assigneePercent = selectedBus?.operator?.sharePercent || 0
-    const driverPercent = selectedDriver?.sharePercent || 0
-
     const comp = calculateShares(
       parseFloat(watchedValues.totalCollection || "0"),
       parseFloat(watchedValues.dieselCost || "0"),
       parseFloat(watchedValues.coopContribution || "0"),
       parseFloat(watchedValues.otherExpenses || "0"),
-      parseFloat(watchedValues.minimumCollection || "6500"),
-      assigneePercent,
-      driverPercent
+      parseFloat(watchedValues.minimumCollection || "6000"),
+      settings.driverBasePay,
+      settings.operatorSharePercent,
+      settings.driverSharePercent
     )
     setComputation(comp)
   }, [
@@ -137,8 +185,7 @@ export default function NewDailyRecordPage() {
     watchedValues.coopContribution,
     watchedValues.otherExpenses,
     watchedValues.minimumCollection,
-    selectedBus,
-    selectedDriver,
+    settings,
   ])
 
   const onSubmit = async (data: FormData) => {
@@ -376,7 +423,9 @@ export default function NewDailyRecordPage() {
                           <FormControl>
                             <Input type="number" step="0.01" {...field} />
                           </FormControl>
-                          <FormDescription>Default: 6,500</FormDescription>
+                          <FormDescription>
+                            {isSunday(new Date(watchedValues.date)) ? `Sunday: ${formatCurrency(settings.sundayMinimum)}` : `Weekday: ${formatCurrency(settings.weekdayMinimum)}`}
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -390,7 +439,9 @@ export default function NewDailyRecordPage() {
                           <FormControl>
                             <Input type="number" step="0.01" placeholder="0.00" {...field} />
                           </FormControl>
-                          <FormDescription>Variable amount for coop</FormDescription>
+                          <FormDescription>
+                            {isSunday(new Date(watchedValues.date)) ? "No coop on Sundays" : `Default: ${formatCurrency(settings.defaultCoop)}`}
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -475,7 +526,7 @@ export default function NewDailyRecordPage() {
                     <div className="text-sm text-muted-foreground">Operator/Assignee</div>
                     <div className="font-medium">{selectedBus.operator?.name || "No operator"}</div>
                     <div className="text-sm text-muted-foreground">
-                      Share: {selectedBus.operator?.sharePercent || 0}%
+                      Extra Share: {settings.operatorSharePercent}%
                     </div>
                   </div>
                 )}
@@ -485,7 +536,7 @@ export default function NewDailyRecordPage() {
                     <div className="text-sm text-muted-foreground">Driver</div>
                     <div className="font-medium">{selectedDriver.name}</div>
                     <div className="text-sm text-muted-foreground">
-                      Share: {selectedDriver.sharePercent}%
+                      Base: {formatCurrency(settings.driverBasePay)} + {settings.driverSharePercent}% of Extra
                     </div>
                   </div>
                 )}
@@ -502,13 +553,17 @@ export default function NewDailyRecordPage() {
                         <span>{formatCurrency(computation.minimumCollection)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span>Excess Collection</span>
-                        <span className="text-green-600">{formatCurrency(computation.excessCollection)}</span>
+                        <span>EXTRA (Collection - Minimum)</span>
+                        <span className="text-green-600 font-medium">{formatCurrency(computation.excessCollection)}</span>
                       </div>
                     </div>
 
                     <div className="space-y-2 border-t pt-4">
-                      <div className="text-sm font-medium text-muted-foreground">Deductions</div>
+                      <div className="text-sm font-medium text-muted-foreground">Deductions from Minimum</div>
+                      <div className="flex justify-between text-sm">
+                        <span>Driver Base Pay</span>
+                        <span className="text-red-600">-{formatCurrency(computation.driverBasePay)}</span>
+                      </div>
                       <div className="flex justify-between text-sm">
                         <span>Diesel Cost</span>
                         <span className="text-red-600">-{formatCurrency(computation.dieselCost)}</span>
@@ -517,19 +572,30 @@ export default function NewDailyRecordPage() {
                         <span>Coop Contribution</span>
                         <span className="text-red-600">-{formatCurrency(computation.coopContribution)}</span>
                       </div>
+                    </div>
+
+                    <div className="space-y-2 border-t pt-4">
+                      <div className="text-sm font-medium text-muted-foreground">EXTRA Split</div>
                       <div className="flex justify-between text-sm">
-                        <span>Other Expenses</span>
-                        <span className="text-red-600">-{formatCurrency(computation.otherExpenses)}</span>
+                        <span>Operator ({settings.operatorSharePercent}%)</span>
+                        <span className="text-blue-600">+{formatCurrency(computation.operatorExtraShare)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Driver ({settings.driverSharePercent}%)</span>
+                        <span className="text-green-600">+{formatCurrency(computation.driverExtraShare)}</span>
                       </div>
                     </div>
 
                     <div className="space-y-2 border-t pt-4">
-                      <div className="text-sm font-medium text-muted-foreground">Shares</div>
+                      <div className="text-sm font-medium text-muted-foreground">Final Shares</div>
                       <div className="flex justify-between">
-                        <span className="font-medium">Assignee Share</span>
+                        <span className="font-medium">Operator Share</span>
                         <span className="text-lg font-bold text-blue-600">
                           {formatCurrency(computation.assigneeShare)}
                         </span>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground mb-2">
+                        <span>= Min - Base - Diesel - Coop + Extra×{settings.operatorSharePercent}%</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="font-medium">Driver Share</span>
@@ -537,18 +603,8 @@ export default function NewDailyRecordPage() {
                           {formatCurrency(computation.driverShare)}
                         </span>
                       </div>
-                    </div>
-
-                    <div className="border-t pt-4">
-                      <div className="flex justify-between">
-                        <span className="font-bold">Net Income</span>
-                        <span
-                          className={`text-xl font-bold ${
-                            computation.netIncome >= 0 ? "text-green-600" : "text-red-600"
-                          }`}
-                        >
-                          {formatCurrency(computation.netIncome)}
-                        </span>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>= {formatCurrency(settings.driverBasePay)} + Extra×{settings.driverSharePercent}%</span>
                       </div>
                     </div>
                   </>

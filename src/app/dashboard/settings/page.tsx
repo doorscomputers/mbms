@@ -93,18 +93,50 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="minCollection">Minimum Collection (PHP)</Label>
+                  <Label htmlFor="weekdayMinCollection">Weekday Minimum Collection (PHP)</Label>
                   <Input
-                    id="minCollection"
+                    id="weekdayMinCollection"
                     type="number"
                     step="0.01"
-                    value={settings[SETTINGS_KEYS.MINIMUM_COLLECTION] || "6500"}
+                    value={settings[SETTINGS_KEYS.WEEKDAY_MINIMUM_COLLECTION] || "6000"}
                     onChange={(e) =>
-                      updateSetting(SETTINGS_KEYS.MINIMUM_COLLECTION, e.target.value)
+                      updateSetting(SETTINGS_KEYS.WEEKDAY_MINIMUM_COLLECTION, e.target.value)
                     }
                   />
                   <p className="text-xs text-muted-foreground">
-                    Default minimum collection threshold
+                    Minimum collection for Monday-Saturday
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sundayMinCollection">Sunday Minimum Collection (PHP)</Label>
+                  <Input
+                    id="sundayMinCollection"
+                    type="number"
+                    step="0.01"
+                    value={settings[SETTINGS_KEYS.SUNDAY_MINIMUM_COLLECTION] || "5000"}
+                    onChange={(e) =>
+                      updateSetting(SETTINGS_KEYS.SUNDAY_MINIMUM_COLLECTION, e.target.value)
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Minimum collection for Sundays (no coop)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="driverBasePay">Driver Base Pay (PHP)</Label>
+                  <Input
+                    id="driverBasePay"
+                    type="number"
+                    step="0.01"
+                    value={settings[SETTINGS_KEYS.DRIVER_BASE_PAY] || "800"}
+                    onChange={(e) =>
+                      updateSetting(SETTINGS_KEYS.DRIVER_BASE_PAY, e.target.value)
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Fixed driver base pay per day
                   </p>
                 </div>
 
@@ -114,49 +146,49 @@ export default function SettingsPage() {
                     id="coopContribution"
                     type="number"
                     step="0.01"
-                    value={settings[SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION] || "0"}
+                    value={settings[SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION] || "1852"}
                     onChange={(e) =>
                       updateSetting(SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION, e.target.value)
                     }
                   />
                   <p className="text-xs text-muted-foreground">
-                    Default coop contribution amount
+                    Coop contribution for weekdays (0 on Sundays)
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="driverShare">Default Driver Share (%)</Label>
+                  <Label htmlFor="driverShare">Driver Extra Share (%)</Label>
                   <Input
                     id="driverShare"
                     type="number"
                     step="0.01"
                     min="0"
                     max="100"
-                    value={settings[SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT] || "0"}
+                    value={settings[SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT] || "40"}
                     onChange={(e) =>
                       updateSetting(SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT, e.target.value)
                     }
                   />
                   <p className="text-xs text-muted-foreground">
-                    Default percentage share for drivers
+                    Driver&apos;s percentage of EXTRA collection
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="assigneeShare">Default Assignee Share (%)</Label>
+                  <Label htmlFor="assigneeShare">Operator Extra Share (%)</Label>
                   <Input
                     id="assigneeShare"
                     type="number"
                     step="0.01"
                     min="0"
                     max="100"
-                    value={settings[SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT] || "0"}
+                    value={settings[SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT] || "60"}
                     onChange={(e) =>
                       updateSetting(SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT, e.target.value)
                     }
                   />
                   <p className="text-xs text-muted-foreground">
-                    Default percentage share for operators/assignees
+                    Operator&apos;s percentage of EXTRA collection
                   </p>
                 </div>
               </div>

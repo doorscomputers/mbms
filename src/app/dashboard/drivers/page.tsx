@@ -1,25 +1,12 @@
 "use client"
 
-import { devExtremeLicenseKey } from "@/lib/devextreme-license"
-void devExtremeLicenseKey
-import { useEffect, useState, useCallback } from "react"
-import DataGrid, {
-  Column,
-  Paging,
-  FilterRow,
-  SearchPanel,
-  Toolbar,
-  Item,
-  HeaderFilter,
-  Export,
-  Format,
-} from "devextreme-react/data-grid"
+import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, RefreshCw, Pencil } from "lucide-react"
-import Link from "next/link"
-import "devextreme/dist/css/dx.light.css"
+import { Plus, Pencil, RefreshCw } from "lucide-react"
 
 interface Driver {
   id: string
@@ -35,105 +22,91 @@ export default function DriversPage() {
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(true)
 
-  const fetchData = useCallback(async () => {
+  const fetchDrivers = async () => {
     setLoading(true)
     try {
       const res = await fetch("/api/drivers?activeOnly=false")
       const data = await res.json()
       if (data.success) setDrivers(data.data)
-    } catch (error) {
-      console.error("Error fetching drivers:", error)
+    } catch {
       toast.error("Failed to load drivers")
     } finally {
       setLoading(false)
     }
-  }, [])
+  }
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    fetchDrivers()
+  }, [])
 
   return (
     <div className="flex flex-col">
       <Header title="Driver Management" />
       <div className="flex-1 p-4 md:p-6">
-        <div className="mb-4 flex gap-2">
-          <Link href="/dashboard/drivers/new">
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Driver
-            </Button>
-          </Link>
-          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </div>
-
-        <DataGrid
-          dataSource={drivers}
-          keyExpr="id"
-          showBorders={true}
-          showRowLines={true}
-          showColumnLines={false}
-          rowAlternationEnabled={true}
-          allowColumnReordering={true}
-          allowColumnResizing={true}
-          columnAutoWidth={true}
-          className="shadow-sm"
-        >
-          <FilterRow visible={true} />
-          <HeaderFilter visible={true} />
-          <SearchPanel visible={true} width={240} placeholder="Search..." />
-          <Paging defaultPageSize={20} />
-          <Export enabled={true} allowExportSelectedData={true} />
-
-          <Toolbar>
-            <Item location="before">
-              <div className="text-lg font-semibold">Drivers</div>
-            </Item>
-            <Item name="searchPanel" />
-            <Item name="exportButton" />
-          </Toolbar>
-
-          <Column
-            caption="Actions"
-            width={80}
-            cellRender={(data) => (
-              <Link href={`/dashboard/drivers/${data.data.id}/edit`}>
-                <Button variant="ghost" size="sm">
-                  <Pencil className="h-4 w-4" />
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Drivers</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={fetchDrivers} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Link href="/dashboard/drivers/new">
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Driver
                 </Button>
               </Link>
-            )}
-          />
-          <Column dataField="name" caption="Full Name">
-            <HeaderFilter allowSearch={true} />
-          </Column>
-          <Column dataField="licenseNumber" caption="License No." width={140} />
-          <Column dataField="contactNumber" caption="Contact" width={130} />
-          <Column dataField="address" caption="Address" />
-          <Column dataField="sharePercent" caption="Share %" dataType="number" width={100}>
-            <Format type="fixedPoint" precision={2} />
-          </Column>
-          <Column
-            dataField="isActive"
-            caption="Status"
-            dataType="boolean"
-            width={80}
-            cellRender={(data) => (
-              <span
-                className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                  data.value
-                    ? "bg-green-100 text-green-700"
-                    : "bg-red-100 text-red-700"
-                }`}
-              >
-                {data.value ? "Active" : "Inactive"}
-              </span>
-            )}
-          />
-        </DataGrid>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2">Name</th>
+                    <th className="text-left p-2">License No.</th>
+                    <th className="text-left p-2">Contact</th>
+                    <th className="text-left p-2">Address</th>
+                    <th className="text-left p-2">Share %</th>
+                    <th className="text-left p-2">Status</th>
+                    <th className="text-left p-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {drivers.map((driver) => (
+                    <tr key={driver.id} className="border-b hover:bg-muted/50">
+                      <td className="p-2 font-medium">{driver.name}</td>
+                      <td className="p-2">{driver.licenseNumber || "-"}</td>
+                      <td className="p-2">{driver.contactNumber || "-"}</td>
+                      <td className="p-2">{driver.address || "-"}</td>
+                      <td className="p-2">{driver.sharePercent}%</td>
+                      <td className="p-2">
+                        <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${driver.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                          {driver.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="p-2">
+                        <Link href={`/dashboard/drivers/${driver.id}/edit`}>
+                          <Button variant="ghost" size="sm">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                  {drivers.length === 0 && !loading && (
+                    <tr>
+                      <td colSpan={7} className="p-4 text-center text-muted-foreground">
+                        No drivers found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

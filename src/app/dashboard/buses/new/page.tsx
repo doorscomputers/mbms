@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
 import { ArrowLeft, Save } from "lucide-react"
-import Link from "next/link"
 
 interface Operator {
   id: string
@@ -20,8 +20,8 @@ interface Operator {
 export default function NewBusPage() {
   const router = useRouter()
   const [operators, setOperators] = useState<Operator[]>([])
-  const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
     busNumber: "",
     plateNumber: "",
     model: "",
@@ -31,43 +31,43 @@ export default function NewBusPage() {
 
   useEffect(() => {
     fetch("/api/operators")
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         if (data.success) setOperators(data.data)
       })
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.busNumber.trim()) {
+    if (!form.busNumber.trim()) {
       toast.error("Bus number is required")
       return
     }
 
-    setLoading(true)
+    setSaving(true)
     try {
       const res = await fetch("/api/buses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          busNumber: formData.busNumber,
-          plateNumber: formData.plateNumber || null,
-          model: formData.model || null,
-          capacity: formData.capacity ? parseInt(formData.capacity) : null,
-          operatorId: formData.operatorId || null,
+          busNumber: form.busNumber,
+          plateNumber: form.plateNumber || null,
+          model: form.model || null,
+          capacity: form.capacity ? parseInt(form.capacity) : null,
+          operatorId: form.operatorId || null,
         }),
       })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Bus added successfully")
+      const data = await res.json()
+      if (data.success) {
+        toast.success("Bus created successfully")
         router.push("/dashboard/buses")
       } else {
-        toast.error(result.error || "Failed to add bus")
+        toast.error(data.error || "Failed to create bus")
       }
     } catch {
-      toast.error("Failed to add bus")
+      toast.error("Failed to create bus")
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
@@ -94,10 +94,9 @@ export default function NewBusPage() {
                 <Label htmlFor="busNumber">Bus Number *</Label>
                 <Input
                   id="busNumber"
-                  value={formData.busNumber}
-                  onChange={(e) => setFormData({ ...formData, busNumber: e.target.value })}
-                  placeholder="Enter bus number"
-                  required
+                  value={form.busNumber}
+                  onChange={(e) => setForm({ ...form, busNumber: e.target.value })}
+                  placeholder="e.g., 001"
                 />
               </div>
 
@@ -105,9 +104,9 @@ export default function NewBusPage() {
                 <Label htmlFor="plateNumber">Plate Number</Label>
                 <Input
                   id="plateNumber"
-                  value={formData.plateNumber}
-                  onChange={(e) => setFormData({ ...formData, plateNumber: e.target.value })}
-                  placeholder="Enter plate number"
+                  value={form.plateNumber}
+                  onChange={(e) => setForm({ ...form, plateNumber: e.target.value })}
+                  placeholder="e.g., ABC 1234"
                 />
               </div>
 
@@ -115,9 +114,9 @@ export default function NewBusPage() {
                 <Label htmlFor="model">Model</Label>
                 <Input
                   id="model"
-                  value={formData.model}
-                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  placeholder="Enter model"
+                  value={form.model}
+                  onChange={(e) => setForm({ ...form, model: e.target.value })}
+                  placeholder="e.g., Toyota Hiace"
                 />
               </div>
 
@@ -126,40 +125,33 @@ export default function NewBusPage() {
                 <Input
                   id="capacity"
                   type="number"
-                  value={formData.capacity}
-                  onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-                  placeholder="Enter capacity"
+                  value={form.capacity}
+                  onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+                  placeholder="e.g., 18"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="operator">Operator</Label>
-                <Select
-                  value={formData.operatorId}
-                  onValueChange={(value) => setFormData({ ...formData, operatorId: value })}
-                >
+                <Label htmlFor="operatorId">Operator</Label>
+                <Select value={form.operatorId} onValueChange={(v) => setForm({ ...form, operatorId: v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select operator" />
                   </SelectTrigger>
                   <SelectContent>
                     {operators.map((op) => (
-                      <SelectItem key={op.id} value={op.id}>
-                        {op.name}
-                      </SelectItem>
+                      <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="flex gap-2 pt-4">
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={saving}>
                   <Save className="h-4 w-4 mr-2" />
-                  {loading ? "Saving..." : "Save Bus"}
+                  {saving ? "Saving..." : "Save"}
                 </Button>
                 <Link href="/dashboard/buses">
-                  <Button type="button" variant="outline">
-                    Cancel
-                  </Button>
+                  <Button type="button" variant="outline">Cancel</Button>
                 </Link>
               </div>
             </form>

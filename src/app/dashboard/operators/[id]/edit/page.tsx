@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,16 +10,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
 import { ArrowLeft, Save, Trash2 } from "lucide-react"
-import Link from "next/link"
 
 export default function EditOperatorPage() {
   const router = useRouter()
   const params = useParams()
-  const operatorId = params.id as string
+  const id = params.id as string
 
-  const [loading, setLoading] = useState(false)
-  const [fetching, setFetching] = useState(true)
-  const [formData, setFormData] = useState({
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
     name: "",
     contactNumber: "",
     address: "",
@@ -27,84 +27,81 @@ export default function EditOperatorPage() {
   })
 
   useEffect(() => {
-    fetch(`/api/operators/${operatorId}`)
-      .then(res => res.json())
-      .then(data => {
+    fetch(`/api/operators/${id}`)
+      .then((r) => r.json())
+      .then((data) => {
         if (data.success) {
-          const operator = data.data
-          setFormData({
-            name: operator.name || "",
-            contactNumber: operator.contactNumber || "",
-            address: operator.address || "",
-            sharePercent: operator.sharePercent?.toString() || "60",
-            isActive: operator.isActive,
+          const op = data.data
+          setForm({
+            name: op.name || "",
+            contactNumber: op.contactNumber || "",
+            address: op.address || "",
+            sharePercent: op.sharePercent?.toString() || "60",
+            isActive: op.isActive,
           })
         }
-        setFetching(false)
+        setLoading(false)
       })
-  }, [operatorId])
+  }, [id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name.trim()) {
-      toast.error("Operator name is required")
+    if (!form.name.trim()) {
+      toast.error("Name is required")
       return
     }
 
-    setLoading(true)
+    setSaving(true)
     try {
-      const res = await fetch(`/api/operators/${operatorId}`, {
+      const res = await fetch(`/api/operators/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: formData.name,
-          contactNumber: formData.contactNumber || null,
-          address: formData.address || null,
-          sharePercent: parseFloat(formData.sharePercent) || 60,
-          isActive: formData.isActive,
+          name: form.name,
+          contactNumber: form.contactNumber || null,
+          address: form.address || null,
+          sharePercent: parseFloat(form.sharePercent) || 60,
+          isActive: form.isActive,
         }),
       })
-      const result = await res.json()
-      if (result.success) {
+      const data = await res.json()
+      if (data.success) {
         toast.success("Operator updated successfully")
         router.push("/dashboard/operators")
       } else {
-        toast.error(result.error || "Failed to update operator")
+        toast.error(data.error || "Failed to update operator")
       }
     } catch {
       toast.error("Failed to update operator")
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to deactivate this operator?")) return
-
-    setLoading(true)
+    if (!confirm("Are you sure you want to delete this operator?")) return
+    setSaving(true)
     try {
-      const res = await fetch(`/api/operators/${operatorId}`, { method: "DELETE" })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Operator deactivated successfully")
+      const res = await fetch(`/api/operators/${id}`, { method: "DELETE" })
+      const data = await res.json()
+      if (data.success) {
+        toast.success("Operator deleted")
         router.push("/dashboard/operators")
       } else {
-        toast.error(result.error || "Failed to delete operator")
+        toast.error(data.error || "Failed to delete")
       }
     } catch {
-      toast.error("Failed to delete operator")
+      toast.error("Failed to delete")
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
-  if (fetching) {
+  if (loading) {
     return (
       <div className="flex flex-col">
         <Header title="Edit Operator" />
-        <div className="flex-1 p-4 md:p-6">
-          <p>Loading...</p>
-        </div>
+        <div className="flex-1 p-4 md:p-6">Loading...</div>
       </div>
     )
   }
@@ -132,10 +129,8 @@ export default function EditOperatorPage() {
                 <Label htmlFor="name">Name *</Label>
                 <Input
                   id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter operator name"
-                  required
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
               </div>
 
@@ -143,9 +138,8 @@ export default function EditOperatorPage() {
                 <Label htmlFor="contactNumber">Contact Number</Label>
                 <Input
                   id="contactNumber"
-                  value={formData.contactNumber}
-                  onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
-                  placeholder="Enter contact number"
+                  value={form.contactNumber}
+                  onChange={(e) => setForm({ ...form, contactNumber: e.target.value })}
                 />
               </div>
 
@@ -153,9 +147,8 @@ export default function EditOperatorPage() {
                 <Label htmlFor="address">Address</Label>
                 <Input
                   id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Enter address"
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
                 />
               </div>
 
@@ -165,25 +158,22 @@ export default function EditOperatorPage() {
                   id="sharePercent"
                   type="number"
                   step="0.01"
-                  value={formData.sharePercent}
-                  onChange={(e) => setFormData({ ...formData, sharePercent: e.target.value })}
-                  placeholder="Enter share percent"
+                  value={form.sharePercent}
+                  onChange={(e) => setForm({ ...form, sharePercent: e.target.value })}
                 />
               </div>
 
               <div className="flex gap-2 pt-4">
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={saving}>
                   <Save className="h-4 w-4 mr-2" />
-                  {loading ? "Saving..." : "Save Changes"}
+                  {saving ? "Saving..." : "Save"}
                 </Button>
-                <Button type="button" variant="destructive" onClick={handleDelete} disabled={loading}>
+                <Button type="button" variant="destructive" onClick={handleDelete} disabled={saving}>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
                 </Button>
                 <Link href="/dashboard/operators">
-                  <Button type="button" variant="outline">
-                    Cancel
-                  </Button>
+                  <Button type="button" variant="outline">Cancel</Button>
                 </Link>
               </div>
             </form>
