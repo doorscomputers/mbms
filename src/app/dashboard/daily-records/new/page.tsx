@@ -61,6 +61,7 @@ export default function NewDailyRecordPage() {
   const [buses, setBuses] = useState<Bus[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(false)
+  const [defaultCoop, setDefaultCoop] = useState("1852")
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -81,6 +82,10 @@ export default function NewDailyRecordPage() {
   const watchedValues = form.watch()
   const selectedBus = buses.find((b) => b.id === watchedValues.busId)
   const selectedDriver = drivers.find((d) => d.id === watchedValues.driverId)
+
+  // Check if selected date is Sunday
+  const selectedDate = watchedValues.date ? new Date(watchedValues.date) : new Date()
+  const isSunday = selectedDate.getDay() === 0
 
   // Calculate totals for summary
   const grossCollection = parseFloat(watchedValues.totalCollection || "0")
@@ -110,8 +115,15 @@ export default function NewDailyRecordPage() {
 
         // Set default coop from settings
         if (settingsData.success && settingsData.data) {
-          const defaultCoop = settingsData.data[SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION] || "1852"
-          form.setValue("coopContribution", defaultCoop)
+          const coopValue = settingsData.data[SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION] || "1852"
+          setDefaultCoop(coopValue)
+          // Check if today is Sunday
+          const today = new Date()
+          if (today.getDay() === 0) {
+            form.setValue("coopContribution", "0")
+          } else {
+            form.setValue("coopContribution", coopValue)
+          }
         }
       } catch (error) {
         console.error("Error fetching data:", error)
@@ -120,6 +132,20 @@ export default function NewDailyRecordPage() {
     }
     fetchData()
   }, [form])
+
+  // Watch for date changes and update Coop based on Sunday
+  useEffect(() => {
+    if (watchedValues.date) {
+      const date = new Date(watchedValues.date)
+      if (date.getDay() === 0) {
+        // Sunday - set coop to 0
+        form.setValue("coopContribution", "0")
+      } else {
+        // Weekday - restore default coop
+        form.setValue("coopContribution", defaultCoop)
+      }
+    }
+  }, [watchedValues.date, defaultCoop, form])
 
   const onSubmit = async (data: FormData) => {
     setLoading(true)
@@ -182,7 +208,14 @@ export default function NewDailyRecordPage() {
                       name="date"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Date</FormLabel>
+                          <FormLabel>
+                            Date
+                            {isSunday && (
+                              <span className="ml-2 text-xs text-orange-600 font-normal">
+                                (Sunday - No Coop)
+                              </span>
+                            )}
+                          </FormLabel>
                           <FormControl>
                             <Input type="date" {...field} />
                           </FormControl>
