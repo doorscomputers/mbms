@@ -518,7 +518,7 @@ export default function NewDailyRecordPage() {
                   <Calculator className="h-5 w-5" />
                   Share Computation
                 </CardTitle>
-                <CardDescription>Auto-calculated based on input</CardDescription>
+                <CardDescription>Real-time calculation preview</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {selectedBus && (
