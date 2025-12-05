@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-utils'
 
 export async function GET(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser()
     const { searchParams } = new URL(request.url)
     const busId = searchParams.get('busId')
     const driverId = searchParams.get('driverId')
@@ -14,7 +16,13 @@ export async function GET(request: NextRequest) {
       busId?: string
       driverId?: string
       date?: { gte?: Date; lte?: Date }
+      bus?: { operatorId: string }
     } = {}
+
+    // Filter by operator if not admin
+    if (currentUser?.role !== 'ADMIN' && currentUser?.operatorId) {
+      where.bus = { operatorId: currentUser.operatorId }
+    }
 
     if (busId) where.busId = busId
     if (driverId) where.driverId = driverId

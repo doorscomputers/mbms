@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { MaintenanceType, Prisma } from '@prisma/client'
+import { getCurrentUser } from '@/lib/auth-utils'
 
 export async function GET(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser()
     const { searchParams } = new URL(request.url)
     const busId = searchParams.get('busId')
     const maintenanceType = searchParams.get('type')
@@ -12,6 +14,11 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100')
 
     const where: Prisma.MaintenanceRecordWhereInput = {}
+
+    // Filter by operator if not admin
+    if (currentUser?.role !== 'ADMIN' && currentUser?.operatorId) {
+      where.bus = { operatorId: currentUser.operatorId }
+    }
 
     if (busId) where.busId = busId
     if (maintenanceType) where.maintenanceType = maintenanceType as MaintenanceType

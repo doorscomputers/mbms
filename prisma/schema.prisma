@@ -20,18 +20,20 @@ model User {
   email         String    @unique
   password      String
   name          String
-  role          UserRole  @default(STAFF)
+  role          UserRole  @default(OPERATOR)
+  operatorId    String?   @unique // Link to operator for OPERATOR role users
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  operator      Operator? @relation(fields: [operatorId], references: [id])
 
   @@map("users")
 }
 
 enum UserRole {
-  ADMIN
-  MANAGER
-  STAFF
+  ADMIN      // Can see and manage everything
+  OPERATOR   // Can only see/manage their own data
 }
 
 // ============================================
@@ -49,6 +51,7 @@ model Operator {
   updatedAt     DateTime  @updatedAt
 
   buses         Bus[]
+  user          User?     // Link to user account
 
   @@map("operators")
 }

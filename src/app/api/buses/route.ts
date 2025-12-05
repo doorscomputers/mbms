@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-utils'
 
 export async function GET(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser()
     const { searchParams } = new URL(request.url)
     const includeOperator = searchParams.get('includeOperator') === 'true'
     const activeOnly = searchParams.get('activeOnly') !== 'false'
 
+    const where: { isActive?: boolean; operatorId?: string } = {}
+
+    if (activeOnly) {
+      where.isActive = true
+    }
+
+    // Filter by operator if not admin
+    if (currentUser?.role !== 'ADMIN' && currentUser?.operatorId) {
+      where.operatorId = currentUser.operatorId
+    }
+
     const buses = await prisma.bus.findMany({
-      where: activeOnly ? { isActive: true } : undefined,
+      where,
       include: {
         operator: includeOperator,
       },

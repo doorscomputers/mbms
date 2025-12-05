@@ -4,18 +4,19 @@ import {
   Bus,
   Calendar,
   ChevronDown,
-  Fuel,
   Home,
   Settings,
   Users,
   Wrench,
   FileText,
-  Package,
   UserCog,
   CreditCard,
+  LogOut,
+  Shield,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useSession, signOut } from "next-auth/react"
 
 import {
   Sidebar,
@@ -37,6 +38,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import { Button } from "@/components/ui/button"
 
 const menuItems = [
   {
@@ -77,6 +79,13 @@ const menuItems = [
     title: "Operators",
     icon: UserCog,
     href: "/dashboard/operators",
+    adminOnly: true,
+  },
+  {
+    title: "User Accounts",
+    icon: Shield,
+    href: "/dashboard/users",
+    adminOnly: true,
   },
   {
     title: "Accounts Payable",
@@ -92,11 +101,20 @@ const menuItems = [
     title: "Settings",
     icon: Settings,
     href: "/dashboard/settings",
+    adminOnly: true,
   },
 ]
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === "ADMIN"
+
+  // Filter menu items based on role
+  const filteredMenuItems = menuItems.filter(item => {
+    if (item.adminOnly && !isAdmin) return false
+    return true
+  })
 
   return (
     <Sidebar>
@@ -116,7 +134,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) =>
+              {filteredMenuItems.map((item) =>
                 item.subItems ? (
                   <Collapsible key={item.title} defaultOpen={pathname.startsWith(item.href)}>
                     <SidebarMenuItem>
@@ -164,10 +182,32 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-border p-4">
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <Package className="h-4 w-4" />
-          <span>Version 1.0.0</span>
-        </div>
+        {session?.user && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+                <span className="text-sm font-medium text-primary">
+                  {session.user.name?.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{session.user.name}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {session.user.operatorName || session.user.role}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   )
