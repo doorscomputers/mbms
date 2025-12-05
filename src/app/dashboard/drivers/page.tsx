@@ -1,12 +1,11 @@
 "use client"
 
 import { devExtremeLicenseKey } from "@/lib/devextreme-license"
-void devExtremeLicenseKey // Ensure license module executes
-import { useEffect, useState, useCallback, useRef } from "react"
+void devExtremeLicenseKey
+import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import DataGrid, {
-  DataGridTypes,
   Column,
-  Editing,
   Paging,
   FilterRow,
   SearchPanel,
@@ -19,7 +18,7 @@ import DataGrid, {
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, RefreshCw } from "lucide-react"
+import { Plus, RefreshCw, Pencil } from "lucide-react"
 import "devextreme/dist/css/dx.light.css"
 
 interface Driver {
@@ -33,14 +32,9 @@ interface Driver {
 }
 
 export default function DriversPage() {
+  const router = useRouter()
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(true)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dataGridRef = useRef<any>(null)
-
-  const handleAddClick = () => {
-    dataGridRef.current?.instance?.addRow()
-  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -60,59 +54,8 @@ export default function DriversPage() {
     fetchData()
   }, [fetchData])
 
-  const onRowInserted = async (e: { data: Partial<Driver> }) => {
-    try {
-      const res = await fetch("/api/drivers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(e.data),
-      })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Driver added successfully")
-        fetchData()
-      } else {
-        toast.error(result.error || "Failed to add driver")
-      }
-    } catch {
-      toast.error("Failed to add driver")
-    }
-  }
-
-  const onRowUpdated = async (e: { key: string; data: Partial<Driver> }) => {
-    try {
-      const res = await fetch(`/api/drivers/${e.key}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(e.data),
-      })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Driver updated successfully")
-        fetchData()
-      } else {
-        toast.error(result.error || "Failed to update driver")
-      }
-    } catch {
-      toast.error("Failed to update driver")
-    }
-  }
-
-  const onRowRemoved = async (e: { key: string }) => {
-    try {
-      const res = await fetch(`/api/drivers/${e.key}`, {
-        method: "DELETE",
-      })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Driver deactivated successfully")
-        fetchData()
-      } else {
-        toast.error(result.error || "Failed to delete driver")
-      }
-    } catch {
-      toast.error("Failed to delete driver")
-    }
+  const handleEdit = (id: string) => {
+    router.push(`/dashboard/drivers/${id}/edit`)
   }
 
   return (
@@ -120,7 +63,6 @@ export default function DriversPage() {
       <Header title="Driver Management" />
       <div className="flex-1 p-4 md:p-6">
         <DataGrid
-          ref={dataGridRef}
           dataSource={drivers}
           keyExpr="id"
           showBorders={true}
@@ -130,9 +72,6 @@ export default function DriversPage() {
           allowColumnReordering={true}
           allowColumnResizing={true}
           columnAutoWidth={true}
-          onRowInserted={onRowInserted}
-          onRowUpdated={onRowUpdated}
-          onRowRemoved={onRowRemoved}
           className="shadow-sm"
         >
           <FilterRow visible={true} />
@@ -140,20 +79,6 @@ export default function DriversPage() {
           <SearchPanel visible={true} width={240} placeholder="Search..." />
           <Paging defaultPageSize={20} />
           <Export enabled={true} allowExportSelectedData={true} />
-
-          <Editing
-            mode="popup"
-            allowAdding={true}
-            allowUpdating={true}
-            allowDeleting={true}
-            useIcons={true}
-            popup={{
-              title: "Driver Information",
-              showTitle: true,
-              width: 500,
-              height: 450,
-            }}
-          />
 
           <Toolbar>
             <Item location="before">
@@ -166,7 +91,7 @@ export default function DriversPage() {
               </Button>
             </Item>
             <Item location="after">
-              <Button size="sm" onClick={handleAddClick}>
+              <Button size="sm" onClick={() => router.push("/dashboard/drivers/new")}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Driver
               </Button>
@@ -175,6 +100,15 @@ export default function DriversPage() {
             <Item name="exportButton" />
           </Toolbar>
 
+          <Column
+            caption="Actions"
+            width={80}
+            cellRender={(data) => (
+              <Button variant="ghost" size="sm" onClick={() => handleEdit(data.data.id)}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+          />
           <Column dataField="name" caption="Full Name">
             <HeaderFilter allowSearch={true} />
           </Column>

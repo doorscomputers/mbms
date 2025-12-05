@@ -1,12 +1,11 @@
 "use client"
 
 import { devExtremeLicenseKey } from "@/lib/devextreme-license"
-void devExtremeLicenseKey // Ensure license module executes
-import { useEffect, useState, useCallback, useRef } from "react"
+void devExtremeLicenseKey
+import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import DataGrid, {
-  DataGridTypes,
   Column,
-  Editing,
   Paging,
   FilterRow,
   SearchPanel,
@@ -19,7 +18,7 @@ import DataGrid, {
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, RefreshCw } from "lucide-react"
+import { Plus, RefreshCw, Pencil } from "lucide-react"
 import "devextreme/dist/css/dx.light.css"
 
 interface Operator {
@@ -39,15 +38,10 @@ interface Bus {
 }
 
 export default function BusesPage() {
+  const router = useRouter()
   const [buses, setBuses] = useState<Bus[]>([])
   const [operators, setOperators] = useState<Operator[]>([])
   const [loading, setLoading] = useState(true)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dataGridRef = useRef<any>(null)
-
-  const handleAddClick = () => {
-    dataGridRef.current?.instance?.addRow()
-  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -74,59 +68,8 @@ export default function BusesPage() {
     fetchData()
   }, [fetchData])
 
-  const onRowInserted = async (e: { data: Partial<Bus> }) => {
-    try {
-      const res = await fetch("/api/buses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(e.data),
-      })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Bus added successfully")
-        fetchData()
-      } else {
-        toast.error(result.error || "Failed to add bus")
-      }
-    } catch {
-      toast.error("Failed to add bus")
-    }
-  }
-
-  const onRowUpdated = async (e: { key: string; data: Partial<Bus> }) => {
-    try {
-      const res = await fetch(`/api/buses/${e.key}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(e.data),
-      })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Bus updated successfully")
-        fetchData()
-      } else {
-        toast.error(result.error || "Failed to update bus")
-      }
-    } catch {
-      toast.error("Failed to update bus")
-    }
-  }
-
-  const onRowRemoved = async (e: { key: string }) => {
-    try {
-      const res = await fetch(`/api/buses/${e.key}`, {
-        method: "DELETE",
-      })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Bus deactivated successfully")
-        fetchData()
-      } else {
-        toast.error(result.error || "Failed to delete bus")
-      }
-    } catch {
-      toast.error("Failed to delete bus")
-    }
+  const handleEdit = (id: string) => {
+    router.push(`/dashboard/buses/${id}/edit`)
   }
 
   return (
@@ -134,7 +77,6 @@ export default function BusesPage() {
       <Header title="Bus Management" />
       <div className="flex-1 p-4 md:p-6">
         <DataGrid
-          ref={dataGridRef}
           dataSource={buses}
           keyExpr="id"
           showBorders={true}
@@ -144,9 +86,6 @@ export default function BusesPage() {
           allowColumnReordering={true}
           allowColumnResizing={true}
           columnAutoWidth={true}
-          onRowInserted={onRowInserted}
-          onRowUpdated={onRowUpdated}
-          onRowRemoved={onRowRemoved}
           className="shadow-sm"
         >
           <FilterRow visible={true} />
@@ -154,20 +93,6 @@ export default function BusesPage() {
           <SearchPanel visible={true} width={240} placeholder="Search..." />
           <Paging defaultPageSize={20} />
           <Export enabled={true} allowExportSelectedData={true} />
-
-          <Editing
-            mode="popup"
-            allowAdding={true}
-            allowUpdating={true}
-            allowDeleting={true}
-            useIcons={true}
-            popup={{
-              title: "Bus Information",
-              showTitle: true,
-              width: 500,
-              height: 400,
-            }}
-          />
 
           <Toolbar>
             <Item location="before">
@@ -180,7 +105,7 @@ export default function BusesPage() {
               </Button>
             </Item>
             <Item location="after">
-              <Button size="sm" onClick={handleAddClick}>
+              <Button size="sm" onClick={() => router.push("/dashboard/buses/new")}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Bus
               </Button>
@@ -189,6 +114,15 @@ export default function BusesPage() {
             <Item name="exportButton" />
           </Toolbar>
 
+          <Column
+            caption="Actions"
+            width={80}
+            cellRender={(data) => (
+              <Button variant="ghost" size="sm" onClick={() => handleEdit(data.data.id)}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+          />
           <Column dataField="busNumber" caption="Bus No." width={100}>
             <HeaderFilter allowSearch={true} />
           </Column>
