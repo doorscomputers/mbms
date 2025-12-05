@@ -11,11 +11,10 @@ export async function middleware(request: NextRequest) {
   const isApi = request.nextUrl.pathname.startsWith("/api")
   const isAuthApi = request.nextUrl.pathname.startsWith("/api/auth")
   const isSetupApi = request.nextUrl.pathname === "/api/setup"
-  const isSeedApi = request.nextUrl.pathname === "/api/seed"
-  const isFixApi = request.nextUrl.pathname === "/api/fix-operator-name"
+  const isPublicApi = request.nextUrl.pathname.startsWith("/api/public")
 
-  // Allow auth, setup, seed, and fix API routes
-  if (isAuthApi || isSetupApi || isSeedApi || isFixApi) {
+  // Allow auth, setup, and public API routes
+  if (isAuthApi || isSetupApi || isPublicApi) {
     return NextResponse.next()
   }
 
@@ -35,7 +34,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Protect API routes (except public routes)
-  if (isApi && !isLoggedIn && !isAuthApi && !isSetupApi && !isSeedApi && !isFixApi) {
+  if (isApi && !isLoggedIn && !isAuthApi && !isSetupApi && !isPublicApi) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },
       { status: 401 }
