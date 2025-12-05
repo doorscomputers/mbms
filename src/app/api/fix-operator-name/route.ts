@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 
-// POST /api/fix-operator-name - Fix BAMAPMCOM to BAMAPCOM
+// GET /api/fix-operator-name - Fix BAMAPMCOM to BAMAPCOM (also accepts POST)
+export async function GET() {
+  return fixOperatorName()
+}
+
 export async function POST() {
+  return fixOperatorName()
+}
+
+async function fixOperatorName() {
   try {
     // Find and update the operator with typo
     const updated = await prisma.operator.updateMany({

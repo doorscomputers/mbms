@@ -2,8 +2,16 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
-// POST /api/seed - Create default users for all operators
+// GET /api/seed - Create default users for all operators (also accepts POST)
+export async function GET() {
+  return seedDatabase()
+}
+
 export async function POST() {
+  return seedDatabase()
+}
+
+async function seedDatabase() {
   try {
     const results: string[] = []
 
