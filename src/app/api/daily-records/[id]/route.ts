@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { calculateShares, isSunday, SETTINGS_KEYS, DEFAULT_SETTINGS } from '@/lib/types'
 
 export async function GET(
   request: NextRequest,
@@ -45,20 +44,14 @@ export async function PUT(
       busId,
       driverId,
       totalCollection,
-      passengerCount,
-      tripCount,
-      dieselLiters,
       dieselCost,
-      odometerStart,
-      odometerEnd,
-      minimumCollection,
+      driverShare,
       coopContribution,
-      otherExpenses,
-      expenseNotes,
+      assigneeShare,
       notes,
     } = body
 
-    // Get operator and driver share percentages
+    // Verify bus and driver exist
     const bus = await prisma.bus.findUnique({
       where: { id: busId },
       include: { operator: true },
@@ -72,55 +65,7 @@ export async function PUT(
       )
     }
 
-    // Get settings from database
-    const settingsRecords = await prisma.setting.findMany({
-      where: {
-        key: {
-          in: [
-            SETTINGS_KEYS.WEEKDAY_MINIMUM_COLLECTION,
-            SETTINGS_KEYS.SUNDAY_MINIMUM_COLLECTION,
-            SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION,
-            SETTINGS_KEYS.DRIVER_BASE_PAY,
-            SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT,
-            SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT,
-          ]
-        }
-      }
-    })
-
-    const settings: Record<string, string> = {}
-    settingsRecords.forEach(s => { settings[s.key] = s.value })
-
-    // Determine if Sunday
-    const recordDate = date ? new Date(date) : new Date()
-    const sunday = isSunday(recordDate)
-
-    // Get settings values with defaults
-    const weekdayMin = parseFloat(settings[SETTINGS_KEYS.WEEKDAY_MINIMUM_COLLECTION] || DEFAULT_SETTINGS[SETTINGS_KEYS.WEEKDAY_MINIMUM_COLLECTION])
-    const sundayMin = parseFloat(settings[SETTINGS_KEYS.SUNDAY_MINIMUM_COLLECTION] || DEFAULT_SETTINGS[SETTINGS_KEYS.SUNDAY_MINIMUM_COLLECTION])
-    const driverBasePay = parseFloat(settings[SETTINGS_KEYS.DRIVER_BASE_PAY] || DEFAULT_SETTINGS[SETTINGS_KEYS.DRIVER_BASE_PAY])
-    const defaultCoop = parseFloat(settings[SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION] || DEFAULT_SETTINGS[SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION])
-    const operatorSharePercent = parseFloat(settings[SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT] || DEFAULT_SETTINGS[SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT])
-    const driverSharePercent = parseFloat(settings[SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT] || DEFAULT_SETTINGS[SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT])
-
-    // Use appropriate minimum based on day
-    const effectiveMinimum = minimumCollection ? parseFloat(minimumCollection) : (sunday ? sundayMin : weekdayMin)
-
-    // Coop is 0 on Sundays, otherwise use provided value or default
-    const effectiveCoop = sunday ? 0 : (coopContribution !== undefined ? parseFloat(coopContribution) : defaultCoop)
-
-    // Recalculate shares using new formula
-    const computation = calculateShares(
-      parseFloat(totalCollection || '0'),
-      parseFloat(dieselCost || '0'),
-      effectiveCoop,
-      parseFloat(otherExpenses || '0'),
-      effectiveMinimum,
-      driverBasePay,
-      operatorSharePercent,
-      driverSharePercent
-    )
-
+    // User enters all values directly - no auto-calculation
     const record = await prisma.dailyRecord.update({
       where: { id },
       data: {
@@ -128,19 +73,10 @@ export async function PUT(
         busId,
         driverId,
         totalCollection: parseFloat(totalCollection || '0'),
-        passengerCount: parseInt(passengerCount || '0'),
-        tripCount: parseInt(tripCount || '0'),
-        dieselLiters: parseFloat(dieselLiters || '0'),
         dieselCost: parseFloat(dieselCost || '0'),
-        odometerStart: parseFloat(odometerStart || '0'),
-        odometerEnd: parseFloat(odometerEnd || '0'),
-        minimumCollection: effectiveMinimum,
-        coopContribution: effectiveCoop,
-        assigneeShare: computation.assigneeShare,
-        driverShare: computation.driverShare,
-        excessCollection: computation.excessCollection,
-        otherExpenses: parseFloat(otherExpenses || '0'),
-        expenseNotes: expenseNotes || null,
+        driverShare: parseFloat(driverShare || '0'),
+        coopContribution: parseFloat(coopContribution || '0'),
+        assigneeShare: parseFloat(assigneeShare || '0'),
         notes: notes || null,
       },
       include: {
