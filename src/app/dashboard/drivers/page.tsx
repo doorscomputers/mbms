@@ -3,7 +3,6 @@
 import { devExtremeLicenseKey } from "@/lib/devextreme-license"
 void devExtremeLicenseKey
 import { useEffect, useState, useCallback } from "react"
-import { useRouter } from "next/navigation"
 import DataGrid, {
   Column,
   Paging,
@@ -19,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
 import { Plus, RefreshCw, Pencil } from "lucide-react"
+import Link from "next/link"
 import "devextreme/dist/css/dx.light.css"
 
 interface Driver {
@@ -32,7 +32,6 @@ interface Driver {
 }
 
 export default function DriversPage() {
-  const router = useRouter()
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -54,14 +53,23 @@ export default function DriversPage() {
     fetchData()
   }, [fetchData])
 
-  const handleEdit = (id: string) => {
-    router.push(`/dashboard/drivers/${id}/edit`)
-  }
-
   return (
     <div className="flex flex-col">
       <Header title="Driver Management" />
       <div className="flex-1 p-4 md:p-6">
+        <div className="mb-4 flex gap-2">
+          <Link href="/dashboard/drivers/new">
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Driver
+            </Button>
+          </Link>
+          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+
         <DataGrid
           dataSource={drivers}
           keyExpr="id"
@@ -84,18 +92,6 @@ export default function DriversPage() {
             <Item location="before">
               <div className="text-lg font-semibold">Drivers</div>
             </Item>
-            <Item location="after">
-              <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-            </Item>
-            <Item location="after">
-              <Button size="sm" onClick={() => router.push("/dashboard/drivers/new")}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Driver
-              </Button>
-            </Item>
             <Item name="searchPanel" />
             <Item name="exportButton" />
           </Toolbar>
@@ -104,9 +100,11 @@ export default function DriversPage() {
             caption="Actions"
             width={80}
             cellRender={(data) => (
-              <Button variant="ghost" size="sm" onClick={() => handleEdit(data.data.id)}>
-                <Pencil className="h-4 w-4" />
-              </Button>
+              <Link href={`/dashboard/drivers/${data.data.id}/edit`}>
+                <Button variant="ghost" size="sm">
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </Link>
             )}
           />
           <Column dataField="name" caption="Full Name">
