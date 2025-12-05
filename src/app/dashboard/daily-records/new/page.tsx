@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
-import { formatCurrency } from "@/lib/types"
+import { formatCurrency, SETTINGS_KEYS } from "@/lib/types"
 import { ArrowLeft, Save } from "lucide-react"
 import Link from "next/link"
 
@@ -38,6 +38,7 @@ const formSchema = z.object({
   dieselCost: z.string().min(1, "Diesel Cost is required"),
   driverShare: z.string().min(1, "Driver Wage is required"),
   coopContribution: z.string().optional(),
+  otherExpenses: z.string().optional(),
   assigneeShare: z.string().min(1, "Assignee Share is required"),
   notes: z.string().optional(),
 })
@@ -71,6 +72,7 @@ export default function NewDailyRecordPage() {
       dieselCost: "",
       driverShare: "",
       coopContribution: "",
+      otherExpenses: "",
       assigneeShare: "",
       notes: "",
     },
@@ -85,30 +87,39 @@ export default function NewDailyRecordPage() {
   const dieselCost = parseFloat(watchedValues.dieselCost || "0")
   const driverWage = parseFloat(watchedValues.driverShare || "0")
   const coop = parseFloat(watchedValues.coopContribution || "0")
+  const expenses = parseFloat(watchedValues.otherExpenses || "0")
   const assigneeShare = parseFloat(watchedValues.assigneeShare || "0")
-  const totalExpenses = dieselCost + driverWage + coop + assigneeShare
+  const totalExpenses = dieselCost + driverWage + coop + expenses + assigneeShare
   const balance = grossCollection - totalExpenses
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [busesRes, driversRes] = await Promise.all([
+        const [busesRes, driversRes, settingsRes] = await Promise.all([
           fetch("/api/buses?includeOperator=true"),
           fetch("/api/drivers"),
+          fetch("/api/settings"),
         ])
 
         const busesData = await busesRes.json()
         const driversData = await driversRes.json()
+        const settingsData = await settingsRes.json()
 
         if (busesData.success) setBuses(busesData.data)
         if (driversData.success) setDrivers(driversData.data)
+
+        // Set default coop from settings
+        if (settingsData.success && settingsData.data) {
+          const defaultCoop = settingsData.data[SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION] || "1852"
+          form.setValue("coopContribution", defaultCoop)
+        }
       } catch (error) {
         console.error("Error fetching data:", error)
         toast.error("Failed to load data")
       }
     }
     fetchData()
-  }, [])
+  }, [form])
 
   const onSubmit = async (data: FormData) => {
     setLoading(true)
@@ -123,6 +134,7 @@ export default function NewDailyRecordPage() {
           dieselCost: parseFloat(data.dieselCost),
           driverShare: parseFloat(data.driverShare),
           coopContribution: parseFloat(data.coopContribution || "0"),
+          otherExpenses: parseFloat(data.otherExpenses || "0"),
           assigneeShare: parseFloat(data.assigneeShare),
         }),
       })
@@ -291,6 +303,19 @@ export default function NewDailyRecordPage() {
                     />
                     <FormField
                       control={form.control}
+                      name="otherExpenses"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Expenses</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
                       name="assigneeShare"
                       render={({ field }) => (
                         <FormItem>
@@ -382,6 +407,10 @@ export default function NewDailyRecordPage() {
                   <div className="flex justify-between text-sm">
                     <span>Coop</span>
                     <span className="text-red-600">-{formatCurrency(coop)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Expenses</span>
+                    <span className="text-red-600">-{formatCurrency(expenses)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Assignee</span>

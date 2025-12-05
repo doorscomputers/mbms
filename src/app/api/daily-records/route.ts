@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       dieselCost,
       driverShare,
       coopContribution,
+      otherExpenses,
       assigneeShare,
       notes,
     } = body
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
         driverShare: parseFloat(driverShare || '0'),
         coopContribution: parseFloat(coopContribution || '0'),
         assigneeShare: parseFloat(assigneeShare || '0'),
+        otherExpenses: parseFloat(otherExpenses || '0'),
         notes: notes || null,
         // Set unused fields to 0
         passengerCount: 0,
@@ -100,7 +102,6 @@ export async function POST(request: NextRequest) {
         odometerEnd: 0,
         minimumCollection: 0,
         excessCollection: 0,
-        otherExpenses: 0,
       },
       include: {
         bus: { include: { operator: true } },

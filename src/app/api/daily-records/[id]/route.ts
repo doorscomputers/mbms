@@ -47,6 +47,7 @@ export async function PUT(
       dieselCost,
       driverShare,
       coopContribution,
+      otherExpenses,
       assigneeShare,
       notes,
     } = body
@@ -76,6 +77,7 @@ export async function PUT(
         dieselCost: parseFloat(dieselCost || '0'),
         driverShare: parseFloat(driverShare || '0'),
         coopContribution: parseFloat(coopContribution || '0'),
+        otherExpenses: parseFloat(otherExpenses || '0'),
         assigneeShare: parseFloat(assigneeShare || '0'),
         notes: notes || null,
       },
