@@ -34,8 +34,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  // Protect API routes (except auth and setup routes)
-  if (isApi && !isLoggedIn && !isAuthApi && !isSetupApi) {
+  // Protect API routes (except public routes)
+  if (isApi && !isLoggedIn && !isAuthApi && !isSetupApi && !isSeedApi && !isFixApi) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },
       { status: 401 }
