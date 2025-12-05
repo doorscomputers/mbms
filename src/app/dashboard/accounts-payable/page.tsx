@@ -4,7 +4,7 @@ import { devExtremeLicenseKey } from "@/lib/devextreme-license"
 void devExtremeLicenseKey // Ensure license module executes
 import { useEffect, useState, useCallback, useRef } from "react"
 import DataGrid, {
-  DataGridRef,
+  DataGridTypes,
   Column,
   Editing,
   Paging,
@@ -71,10 +71,11 @@ export default function AccountsPayablePage() {
   const [buses, setBuses] = useState<Bus[]>([])
   const [summary, setSummary] = useState<APSummary | null>(null)
   const [loading, setLoading] = useState(true)
-  const dataGridRef = useRef<DataGridRef>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dataGridRef = useRef<any>(null)
 
   const handleAddClick = () => {
-    dataGridRef.current?.instance().addRow()
+    dataGridRef.current?.instance()?.addRow()
   }
 
   const fetchData = useCallback(async () => {
