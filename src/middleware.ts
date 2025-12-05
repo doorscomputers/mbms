@@ -3,8 +3,6 @@ import type { NextRequest } from "next/server"
 import { auth } from "@/lib/auth"
 
 export async function middleware(request: NextRequest) {
-  const session = await auth()
-  const isLoggedIn = !!session?.user
   const isLoginPage = request.nextUrl.pathname === "/login"
   const isSetupPage = request.nextUrl.pathname === "/setup"
   const isDashboard = request.nextUrl.pathname.startsWith("/dashboard")
@@ -13,10 +11,14 @@ export async function middleware(request: NextRequest) {
   const isSetupApi = request.nextUrl.pathname === "/api/setup"
   const isPublicApi = request.nextUrl.pathname.startsWith("/api/public")
 
-  // Allow auth, setup, and public API routes
+  // Allow auth, setup, and public API routes WITHOUT checking auth
   if (isAuthApi || isSetupApi || isPublicApi) {
     return NextResponse.next()
   }
+
+  // Only call auth() after we've checked for public routes
+  const session = await auth()
+  const isLoggedIn = !!session?.user
 
   // Allow setup page
   if (isSetupPage) {
