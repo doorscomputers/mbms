@@ -2,8 +2,9 @@
 
 import { devExtremeLicenseKey } from "@/lib/devextreme-license"
 void devExtremeLicenseKey // Ensure license module executes
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import DataGrid, {
+  DataGridRef,
   Column,
   Editing,
   Paging,
@@ -77,6 +78,11 @@ function BusesDetail({ data }: { data: { data: Operator } }) {
 export default function OperatorsPage() {
   const [operators, setOperators] = useState<Operator[]>([])
   const [loading, setLoading] = useState(true)
+  const dataGridRef = useRef<DataGridRef>(null)
+
+  const handleAddClick = () => {
+    dataGridRef.current?.instance().addRow()
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -156,6 +162,7 @@ export default function OperatorsPage() {
       <Header title="Operator (Assignee) Management" />
       <div className="flex-1 p-4 md:p-6">
         <DataGrid
+          ref={dataGridRef}
           dataSource={operators}
           keyExpr="id"
           showBorders={true}
@@ -205,8 +212,8 @@ export default function OperatorsPage() {
                 Refresh
               </Button>
             </Item>
-            <Item name="addRowButton" showText="always">
-              <Button size="sm">
+            <Item location="after">
+              <Button size="sm" onClick={handleAddClick}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Operator
               </Button>

@@ -2,8 +2,9 @@
 
 import { devExtremeLicenseKey } from "@/lib/devextreme-license"
 void devExtremeLicenseKey // Ensure license module executes
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import DataGrid, {
+  DataGridRef,
   Column,
   Editing,
   Paging,
@@ -34,6 +35,11 @@ interface PartType {
 export default function PartTypesPage() {
   const [partTypes, setPartTypes] = useState<PartType[]>([])
   const [loading, setLoading] = useState(true)
+  const dataGridRef = useRef<DataGridRef>(null)
+
+  const handleAddClick = () => {
+    dataGridRef.current?.instance().addRow()
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -126,6 +132,7 @@ export default function PartTypesPage() {
         </div>
 
         <DataGrid
+          ref={dataGridRef}
           dataSource={partTypes}
           keyExpr="id"
           showBorders={true}
@@ -169,8 +176,8 @@ export default function PartTypesPage() {
                 Refresh
               </Button>
             </Item>
-            <Item name="addRowButton" showText="always">
-              <Button size="sm">
+            <Item location="after">
+              <Button size="sm" onClick={handleAddClick}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Part Type
               </Button>

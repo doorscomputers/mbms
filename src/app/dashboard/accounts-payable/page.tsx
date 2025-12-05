@@ -2,8 +2,9 @@
 
 import { devExtremeLicenseKey } from "@/lib/devextreme-license"
 void devExtremeLicenseKey // Ensure license module executes
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import DataGrid, {
+  DataGridRef,
   Column,
   Editing,
   Paging,
@@ -70,6 +71,11 @@ export default function AccountsPayablePage() {
   const [buses, setBuses] = useState<Bus[]>([])
   const [summary, setSummary] = useState<APSummary | null>(null)
   const [loading, setLoading] = useState(true)
+  const dataGridRef = useRef<DataGridRef>(null)
+
+  const handleAddClick = () => {
+    dataGridRef.current?.instance().addRow()
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -235,6 +241,7 @@ export default function AccountsPayablePage() {
 
         {/* Data Grid */}
         <DataGrid
+          ref={dataGridRef}
           dataSource={records}
           keyExpr="id"
           showBorders={true}
@@ -281,8 +288,8 @@ export default function AccountsPayablePage() {
                 Refresh
               </Button>
             </Item>
-            <Item name="addRowButton" showText="always">
-              <Button size="sm">
+            <Item location="after">
+              <Button size="sm" onClick={handleAddClick}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Payable
               </Button>

@@ -2,8 +2,9 @@
 
 import { devExtremeLicenseKey } from "@/lib/devextreme-license"
 void devExtremeLicenseKey // Ensure license module executes
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import DataGrid, {
+  DataGridRef,
   Column,
   Editing,
   Paging,
@@ -34,6 +35,11 @@ interface Driver {
 export default function DriversPage() {
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(true)
+  const dataGridRef = useRef<DataGridRef>(null)
+
+  const handleAddClick = () => {
+    dataGridRef.current?.instance().addRow()
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -113,6 +119,7 @@ export default function DriversPage() {
       <Header title="Driver Management" />
       <div className="flex-1 p-4 md:p-6">
         <DataGrid
+          ref={dataGridRef}
           dataSource={drivers}
           keyExpr="id"
           showBorders={true}
@@ -157,8 +164,8 @@ export default function DriversPage() {
                 Refresh
               </Button>
             </Item>
-            <Item name="addRowButton" showText="always">
-              <Button size="sm">
+            <Item location="after">
+              <Button size="sm" onClick={handleAddClick}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Driver
               </Button>
