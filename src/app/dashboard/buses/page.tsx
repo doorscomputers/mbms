@@ -46,7 +46,7 @@ export default function BusesPage() {
   const dataGridRef = useRef<any>(null)
 
   const handleAddClick = () => {
-    dataGridRef.current?.instance()?.addRow()
+    dataGridRef.current?.instance?.addRow()
   }
 
   const fetchData = useCallback(async () => {
