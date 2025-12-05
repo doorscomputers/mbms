@@ -1,5 +1,6 @@
 "use client"
 
+import "@/lib/devextreme-license"
 import { useEffect, useState, useCallback } from "react"
 import DataGrid, {
   Column,
