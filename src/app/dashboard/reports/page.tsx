@@ -16,7 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatCurrency } from "@/lib/types"
 import {
-  DollarSign,
+  Banknote,
   Fuel,
   TrendingUp,
   Wrench,
@@ -270,7 +270,7 @@ export default function ReportsPage() {
                       <CardTitle className="text-sm font-medium text-muted-foreground">
                         Total Collections
                       </CardTitle>
-                      <DollarSign className="h-4 w-4 text-emerald-600" />
+                      <Banknote className="h-4 w-4 text-emerald-600" />
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">

@@ -11,9 +11,10 @@ export async function middleware(request: NextRequest) {
   const isApi = request.nextUrl.pathname.startsWith("/api")
   const isAuthApi = request.nextUrl.pathname.startsWith("/api/auth")
   const isSetupApi = request.nextUrl.pathname === "/api/setup"
+  const isSeedApi = request.nextUrl.pathname === "/api/seed"
 
-  // Allow auth and setup API routes
-  if (isAuthApi || isSetupApi) {
+  // Allow auth, setup, and seed API routes
+  if (isAuthApi || isSetupApi || isSeedApi) {
     return NextResponse.next()
   }
 

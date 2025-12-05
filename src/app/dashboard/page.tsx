@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import {
   Bus,
   Users,
-  DollarSign,
+  Banknote,
   Fuel,
   TrendingUp,
   AlertTriangle,
@@ -95,7 +95,7 @@ export default function DashboardPage() {
         {
           title: "Monthly Collections",
           value: formatCurrency(summary.collections.total),
-          icon: DollarSign,
+          icon: Banknote,
           description: `Avg: ${formatCurrency(summary.collections.average)}/day`,
           color: "text-emerald-600",
           bgColor: "bg-emerald-100",
