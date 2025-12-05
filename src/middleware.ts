@@ -12,9 +12,10 @@ export async function middleware(request: NextRequest) {
   const isAuthApi = request.nextUrl.pathname.startsWith("/api/auth")
   const isSetupApi = request.nextUrl.pathname === "/api/setup"
   const isSeedApi = request.nextUrl.pathname === "/api/seed"
+  const isFixApi = request.nextUrl.pathname === "/api/fix-operator-name"
 
-  // Allow auth, setup, and seed API routes
-  if (isAuthApi || isSetupApi || isSeedApi) {
+  // Allow auth, setup, seed, and fix API routes
+  if (isAuthApi || isSetupApi || isSeedApi || isFixApi) {
     return NextResponse.next()
   }
 
