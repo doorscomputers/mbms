@@ -1,6 +1,7 @@
 "use client"
 
-import "@/lib/devextreme-license"
+import { devExtremeLicenseKey } from "@/lib/devextreme-license"
+void devExtremeLicenseKey // Ensure license module executes
 import { useEffect, useState, useCallback } from "react"
 import DataGrid, {
   Column,
