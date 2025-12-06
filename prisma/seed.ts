@@ -15,15 +15,15 @@ async function main() {
     const hashedPassword = await bcrypt.hash('admin123', 10)
     const admin = await prisma.user.create({
       data: {
-        email: 'admin@mbms.com',
+        username: 'admin',
         password: hashedPassword,
         name: 'Administrator',
         role: 'ADMIN',
       }
     })
-    console.log(`Created admin user: ${admin.email} / password: admin123`)
+    console.log(`Created admin user: ${admin.username} / password: admin123`)
   } else {
-    console.log(`Admin user already exists: ${existingAdmin.email}`)
+    console.log(`Admin user already exists: ${existingAdmin.username}`)
   }
 
   // Get all operators that don't have a user account yet
@@ -41,26 +41,24 @@ async function main() {
   const hashedDefaultPassword = await bcrypt.hash(defaultPassword, 10)
 
   for (const operator of operatorsWithoutUser) {
-    // Generate email from operator name (lowercase, replace spaces with dots)
-    const emailBase = operator.name
+    // Generate username from operator name (lowercase, replace spaces with dots)
+    const username = operator.name
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, '') // Remove special characters
       .replace(/\s+/g, '.') // Replace spaces with dots
       .trim()
 
-    const email = `${emailBase}@mbms.local`
-
     try {
       const user = await prisma.user.create({
         data: {
-          email,
+          username,
           password: hashedDefaultPassword,
           name: operator.name,
           role: 'OPERATOR',
           operatorId: operator.id,
         }
       })
-      console.log(`Created user for operator "${operator.name}": ${email} / password: ${defaultPassword}`)
+      console.log(`Created user for operator "${operator.name}": ${user.username} / password: ${defaultPassword}`)
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
         console.log(`User already exists for operator "${operator.name}", skipping...`)
@@ -74,8 +72,8 @@ async function main() {
   console.log('\n========================================')
   console.log('DEFAULT CREDENTIALS')
   console.log('========================================')
-  console.log('Admin:     admin@mbms.com / admin123')
-  console.log('Operators: <name>@mbms.local / password123')
+  console.log('Admin:     admin / admin123')
+  console.log('Operators: <operator.name> / password123')
   console.log('========================================')
   console.log('\nPlease change passwords after first login!')
 }

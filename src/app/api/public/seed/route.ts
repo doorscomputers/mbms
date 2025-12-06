@@ -24,15 +24,15 @@ async function seedDatabase() {
       const hashedPassword = await bcrypt.hash('admin123', 10)
       const admin = await prisma.user.create({
         data: {
-          email: 'admin@mbms.com',
+          username: 'admin',
           password: hashedPassword,
           name: 'Administrator',
           role: 'ADMIN',
         }
       })
-      results.push(`Created admin: ${admin.email} / password: admin123`)
+      results.push(`Created admin: ${admin.username} / password: admin123`)
     } else {
-      results.push(`Admin already exists: ${existingAdmin.email}`)
+      results.push(`Admin already exists: ${existingAdmin.username}`)
     }
 
     // Get all operators that don't have a user account yet
@@ -50,26 +50,24 @@ async function seedDatabase() {
     const hashedDefaultPassword = await bcrypt.hash(defaultPassword, 10)
 
     for (const operator of operatorsWithoutUser) {
-      // Generate email from operator name (lowercase, replace spaces with dots)
-      const emailBase = operator.name
+      // Generate username from operator name (lowercase, replace spaces with dots)
+      const username = operator.name
         .toLowerCase()
         .replace(/[^a-z0-9\s]/g, '') // Remove special characters
         .replace(/\s+/g, '.') // Replace spaces with dots
         .trim()
 
-      const email = `${emailBase}@mbms.local`
-
       try {
         const user = await prisma.user.create({
           data: {
-            email,
+            username,
             password: hashedDefaultPassword,
             name: operator.name,
             role: 'OPERATOR',
             operatorId: operator.id,
           }
         })
-        results.push(`Created: ${operator.name} => ${email} / password123`)
+        results.push(`Created: ${operator.name} => ${user.username} / password123`)
       } catch (error: unknown) {
         if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
           results.push(`Skipped (already exists): ${operator.name}`)
@@ -84,8 +82,8 @@ async function seedDatabase() {
       message: 'Seed completed',
       results,
       credentials: {
-        admin: 'admin@mbms.com / admin123',
-        operators: '<operator-name>@mbms.local / password123'
+        admin: 'admin / admin123',
+        operators: '<operator.name> / password123'
       }
     })
   } catch (error) {
