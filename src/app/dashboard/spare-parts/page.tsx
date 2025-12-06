@@ -17,7 +17,6 @@ import DataGrid, {
   Export,
   Summary,
   TotalItem,
-  Format,
   GroupPanel,
   Grouping,
 } from "devextreme-react/data-grid"
@@ -407,12 +406,20 @@ export default function SparePartsPage() {
           </Column>
           <Column dataField="brand" caption="Brand" width={100} />
           <Column dataField="quantity" caption="Qty" dataType="number" width={60} />
-          <Column dataField="unitCost" caption="Unit Cost" dataType="number" width={100}>
-            <Format type="currency" precision={2} />
-          </Column>
-          <Column dataField="totalCost" caption="Total Cost" dataType="number" width={110}>
-            <Format type="currency" precision={2} />
-          </Column>
+          <Column
+            dataField="unitCost"
+            caption="Unit Cost"
+            dataType="number"
+            width={100}
+            cellRender={(data) => formatCurrency(data.value || 0)}
+          />
+          <Column
+            dataField="totalCost"
+            caption="Total Cost"
+            dataType="number"
+            width={110}
+            cellRender={(data) => formatCurrency(data.value || 0)}
+          />
           <Column dataField="supplier" caption="Supplier" width={120} />
           <Column
             dataField="installedDate"
@@ -481,8 +488,10 @@ export default function SparePartsPage() {
             <TotalItem
               column="totalCost"
               summaryType="sum"
-              valueFormat={{ type: "currency", precision: 2 }}
-              displayFormat="Total: {0}"
+              customizeText={(data) => {
+                const value = typeof data.value === 'number' ? data.value : 0
+                return `Total: ${formatCurrency(value)}`
+              }}
             />
             <TotalItem
               column="quantity"

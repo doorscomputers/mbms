@@ -17,7 +17,6 @@ import DataGrid, {
   Export,
   Summary,
   TotalItem,
-  Format,
   GroupPanel,
   Grouping,
 } from "devextreme-react/data-grid"
@@ -395,9 +394,13 @@ export default function AccountsPayablePage() {
             <Lookup dataSource={categories} valueExpr="value" displayExpr="text" />
           </Column>
           <Column dataField="description" caption="Description" />
-          <Column dataField="amount" caption="Amount" dataType="number" width={120}>
-            <Format type="currency" precision={2} />
-          </Column>
+          <Column
+            dataField="amount"
+            caption="Amount"
+            dataType="number"
+            width={120}
+            cellRender={(data) => formatCurrency(data.value || 0)}
+          />
           <Column
             dataField="dueDate"
             caption="Due Date"
@@ -433,9 +436,13 @@ export default function AccountsPayablePage() {
               </span>
             )}
           />
-          <Column dataField="paidAmount" caption="Paid Amt" dataType="number" width={100}>
-            <Format type="currency" precision={2} />
-          </Column>
+          <Column
+            dataField="paidAmount"
+            caption="Paid Amt"
+            dataType="number"
+            width={100}
+            cellRender={(data) => formatCurrency(data.value || 0)}
+          />
           <Column
             dataField="paidDate"
             caption="Paid Date"
@@ -449,14 +456,18 @@ export default function AccountsPayablePage() {
             <TotalItem
               column="amount"
               summaryType="sum"
-              valueFormat={{ type: "currency", precision: 2 }}
-              displayFormat="Total: {0}"
+              customizeText={(data) => {
+                const value = typeof data.value === 'number' ? data.value : 0
+                return `Total: ${formatCurrency(value)}`
+              }}
             />
             <TotalItem
               column="paidAmount"
               summaryType="sum"
-              valueFormat={{ type: "currency", precision: 2 }}
-              displayFormat="Paid: {0}"
+              customizeText={(data) => {
+                const value = typeof data.value === 'number' ? data.value : 0
+                return `Paid: ${formatCurrency(value)}`
+              }}
             />
           </Summary>
         </DataGrid>
