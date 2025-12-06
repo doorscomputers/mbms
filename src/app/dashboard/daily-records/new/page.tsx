@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import { formatCurrency, calculateShares, SETTINGS_KEYS } from "@/lib/types"
-import { ArrowLeft, Save, Calculator } from "lucide-react"
+import { ArrowLeft, Save, Calculator, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 
 const formSchema = z.object({
@@ -38,6 +38,7 @@ const formSchema = z.object({
   dieselCost: z.string().min(1, "Diesel Cost is required"),
   coopContribution: z.string().optional(),
   otherExpenses: z.string().optional(),
+  driverWageOverride: z.string().optional(),
   notes: z.string().optional(),
 })
 
@@ -83,6 +84,7 @@ export default function NewDailyRecordPage() {
       dieselCost: "",
       coopContribution: "",
       otherExpenses: "",
+      driverWageOverride: "",
       notes: "",
     },
   })
@@ -104,6 +106,9 @@ export default function NewDailyRecordPage() {
   const coop = parseFloat(watchedValues.coopContribution || "0")
   const expenses = parseFloat(watchedValues.otherExpenses || "0")
 
+  // Check if collection is below minimum
+  const isBelowMinimum = grossCollection > 0 && grossCollection < minimumCollection
+
   // Use the calculateShares function for automatic computation
   const computation = calculateShares(
     grossCollection,
@@ -115,6 +120,17 @@ export default function NewDailyRecordPage() {
     60, // operator share percent
     40  // driver share percent
   )
+
+  // Get the actual driver wage (override or computed)
+  const driverWageOverride = parseFloat(watchedValues.driverWageOverride || "0")
+  const actualDriverWage = isBelowMinimum && driverWageOverride > 0
+    ? driverWageOverride
+    : computation.driverShare
+
+  // Recalculate assignee share if using override
+  const actualAssigneeShare = isBelowMinimum && driverWageOverride > 0
+    ? grossCollection - dieselCost - coop - expenses - driverWageOverride
+    : computation.assigneeShare
 
   useEffect(() => {
     async function fetchData() {
@@ -175,17 +191,35 @@ export default function NewDailyRecordPage() {
   const onSubmit = async (data: FormData) => {
     setLoading(true)
     try {
-      // Recalculate shares for submission
-      const submitComputation = calculateShares(
-        parseFloat(data.totalCollection),
-        parseFloat(data.dieselCost),
-        parseFloat(data.coopContribution || "0"),
-        parseFloat(data.otherExpenses || "0"),
-        minimumCollection,
-        settings.driverBasePay,
-        60,
-        40
-      )
+      const collection = parseFloat(data.totalCollection)
+      const belowMin = collection < minimumCollection
+
+      // Determine final driver wage and assignee share
+      let finalDriverWage: number
+      let finalAssigneeShare: number
+      let finalExcessCollection: number
+
+      if (belowMin && data.driverWageOverride && parseFloat(data.driverWageOverride) > 0) {
+        // Using manual override for below-minimum collection
+        finalDriverWage = parseFloat(data.driverWageOverride)
+        finalExcessCollection = 0
+        finalAssigneeShare = collection - parseFloat(data.dieselCost) - parseFloat(data.coopContribution || "0") - parseFloat(data.otherExpenses || "0") - finalDriverWage
+      } else {
+        // Normal computation
+        const submitComputation = calculateShares(
+          collection,
+          parseFloat(data.dieselCost),
+          parseFloat(data.coopContribution || "0"),
+          parseFloat(data.otherExpenses || "0"),
+          minimumCollection,
+          settings.driverBasePay,
+          60,
+          40
+        )
+        finalDriverWage = submitComputation.driverShare
+        finalAssigneeShare = submitComputation.assigneeShare
+        finalExcessCollection = submitComputation.excessCollection
+      }
 
       const res = await fetch("/api/daily-records", {
         method: "POST",
@@ -194,16 +228,16 @@ export default function NewDailyRecordPage() {
           date: data.date,
           busId: data.busId,
           driverId: data.driverId,
-          totalCollection: parseFloat(data.totalCollection),
+          totalCollection: collection,
           dieselCost: parseFloat(data.dieselCost),
           coopContribution: parseFloat(data.coopContribution || "0"),
           otherExpenses: parseFloat(data.otherExpenses || "0"),
           notes: data.notes || "",
-          // Computed values
+          // Computed/Override values
           minimumCollection: minimumCollection,
-          excessCollection: submitComputation.excessCollection,
-          driverShare: submitComputation.driverShare,
-          assigneeShare: submitComputation.assigneeShare,
+          excessCollection: finalExcessCollection,
+          driverShare: finalDriverWage,
+          assigneeShare: finalAssigneeShare,
         }),
       })
 
@@ -271,21 +305,21 @@ export default function NewDailyRecordPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Bus</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
+                          <FormControl>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select bus" />
                               </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {buses.map((bus) => (
-                                <SelectItem key={bus.id} value={bus.id}>
-                                  Bus #{bus.busNumber}
-                                  {bus.operator && ` - ${bus.operator.name}`}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                              <SelectContent>
+                                {buses.map((bus) => (
+                                  <SelectItem key={bus.id} value={bus.id}>
+                                    Bus #{bus.busNumber}
+                                    {bus.operator && ` - ${bus.operator.name}`}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -296,20 +330,20 @@ export default function NewDailyRecordPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Driver</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
+                          <FormControl>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select driver" />
                               </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {drivers.map((driver) => (
-                                <SelectItem key={driver.id} value={driver.id}>
-                                  {driver.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                              <SelectContent>
+                                {drivers.map((driver) => (
+                                  <SelectItem key={driver.id} value={driver.id}>
+                                    {driver.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -379,14 +413,59 @@ export default function NewDailyRecordPage() {
                   </CardContent>
                 </Card>
 
+                {/* Below Minimum Warning and Manual Entry */}
+                {isBelowMinimum && (
+                  <Card className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base text-orange-700 dark:text-orange-400">
+                        <AlertTriangle className="h-5 w-5" />
+                        Below Minimum Collection
+                      </CardTitle>
+                      <CardDescription className="text-orange-600 dark:text-orange-400">
+                        Collection ({formatCurrency(grossCollection)}) is below the minimum ({formatCurrency(minimumCollection)}).
+                        Enter the actual driver wage manually.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <FormField
+                        control={form.control}
+                        name="driverWageOverride"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Driver Wage (Manual Entry)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="Enter actual driver wage"
+                                className="bg-white dark:bg-background"
+                                {...field}
+                              />
+                            </FormControl>
+                            <p className="text-xs text-orange-600">
+                              Since collection is below minimum, the standard formula doesn&apos;t apply.
+                              Enter what the driver will actually receive.
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Computed Values Display */}
                 <Card className="border-primary/20 bg-primary/5">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <Calculator className="h-4 w-4" />
-                      Auto-Computed Values
+                      {isBelowMinimum ? "Calculated Values" : "Auto-Computed Values"}
                     </CardTitle>
-                    <CardDescription>These values are calculated automatically based on the formula</CardDescription>
+                    <CardDescription>
+                      {isBelowMinimum
+                        ? "Values based on your manual entry above"
+                        : "These values are calculated automatically based on the formula"}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="grid gap-4 sm:grid-cols-4">
@@ -397,18 +476,28 @@ export default function NewDailyRecordPage() {
                       </div>
                       <div className="rounded-lg bg-background p-3 border">
                         <div className="text-xs text-muted-foreground">Extra Collection</div>
-                        <div className="text-lg font-semibold text-emerald-600">{formatCurrency(computation.excessCollection)}</div>
-                        <div className="text-xs text-muted-foreground">Above minimum</div>
+                        <div className={`text-lg font-semibold ${isBelowMinimum ? "text-red-600" : "text-emerald-600"}`}>
+                          {isBelowMinimum ? formatCurrency(grossCollection - minimumCollection) : formatCurrency(computation.excessCollection)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {isBelowMinimum ? "Below minimum!" : "Above minimum"}
+                        </div>
                       </div>
                       <div className="rounded-lg bg-background p-3 border">
                         <div className="text-xs text-muted-foreground">Driver Wage</div>
-                        <div className="text-lg font-semibold text-green-600">{formatCurrency(computation.driverShare)}</div>
-                        <div className="text-xs text-muted-foreground">Base {formatCurrency(settings.driverBasePay)} + 40% extra</div>
+                        <div className="text-lg font-semibold text-green-600">{formatCurrency(actualDriverWage)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {isBelowMinimum ? "Manual entry" : `Base ${formatCurrency(settings.driverBasePay)} + 40% extra`}
+                        </div>
                       </div>
                       <div className="rounded-lg bg-background p-3 border">
                         <div className="text-xs text-muted-foreground">Assignee Share</div>
-                        <div className="text-lg font-semibold text-blue-600">{formatCurrency(computation.assigneeShare)}</div>
-                        <div className="text-xs text-muted-foreground">60% of extra</div>
+                        <div className={`text-lg font-semibold ${actualAssigneeShare >= 0 ? "text-blue-600" : "text-red-600"}`}>
+                          {formatCurrency(actualAssigneeShare)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {isBelowMinimum ? "Remaining after deductions" : "60% of extra"}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -480,9 +569,13 @@ export default function NewDailyRecordPage() {
                     <span>Minimum</span>
                     <span className="font-medium">{formatCurrency(minimumCollection)}</span>
                   </div>
-                  <div className="flex justify-between text-sm text-emerald-600">
+                  <div className={`flex justify-between text-sm ${isBelowMinimum ? "text-red-600" : "text-emerald-600"}`}>
                     <span>Extra</span>
-                    <span className="font-medium">{formatCurrency(computation.excessCollection)}</span>
+                    <span className="font-medium">
+                      {isBelowMinimum
+                        ? formatCurrency(grossCollection - minimumCollection)
+                        : formatCurrency(computation.excessCollection)}
+                    </span>
                   </div>
                 </div>
 
@@ -506,23 +599,33 @@ export default function NewDailyRecordPage() {
                   <div className="text-sm font-medium text-muted-foreground">Share Distribution</div>
                   <div className="flex justify-between text-sm">
                     <span>Driver Wage</span>
-                    <span className="font-bold text-green-600">{formatCurrency(computation.driverShare)}</span>
+                    <span className="font-bold text-green-600">{formatCurrency(actualDriverWage)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Assignee Share</span>
-                    <span className="font-bold text-blue-600">{formatCurrency(computation.assigneeShare)}</span>
+                    <span className={`font-bold ${actualAssigneeShare >= 0 ? "text-blue-600" : "text-red-600"}`}>
+                      {formatCurrency(actualAssigneeShare)}
+                    </span>
                   </div>
                 </div>
 
                 <div className="border-t pt-4">
                   <div className="flex justify-between">
                     <span className="font-bold">Net Balance</span>
-                    <span className={`text-xl font-bold ${computation.netIncome >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {formatCurrency(computation.netIncome)}
+                    <span className={`text-xl font-bold ${
+                      isBelowMinimum
+                        ? (grossCollection - dieselCost - coop - expenses - actualDriverWage - actualAssigneeShare) >= -0.01 ? "text-green-600" : "text-red-600"
+                        : computation.netIncome >= 0 ? "text-green-600" : "text-red-600"
+                    }`}>
+                      {formatCurrency(
+                        isBelowMinimum
+                          ? grossCollection - dieselCost - coop - expenses - actualDriverWage - actualAssigneeShare
+                          : computation.netIncome
+                      )}
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    Should be close to ₱0.00 if formula is correct
+                    Should be close to ₱0.00 if all amounts are correct
                   </div>
                 </div>
               </CardContent>
