@@ -25,9 +25,10 @@ import { Button } from "@/components/ui/button"
 import { Header } from "@/components/layout/header"
 import { QuickAddPartType } from "@/components/quick-add-part-type"
 import { toast } from "sonner"
-import { Plus, RefreshCw, Settings } from "lucide-react"
-import { formatDate } from "@/lib/types"
+import { Plus, RefreshCw, Settings, Package, Calendar, Bus as BusIcon } from "lucide-react"
+import { formatDate, formatCurrency } from "@/lib/types"
 import Link from "next/link"
+import { useIsMobile } from "@/hooks/use-mobile"
 import "devextreme/dist/css/dx.light.css"
 
 interface Bus {
@@ -66,6 +67,7 @@ export default function SparePartsPage() {
   const [buses, setBuses] = useState<Bus[]>([])
   const [partTypes, setPartTypes] = useState<{ value: string; text: string }[]>([])
   const [loading, setLoading] = useState(true)
+  const isMobile = useIsMobile()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dataGridRef = useRef<any>(null)
 
@@ -195,11 +197,130 @@ export default function SparePartsPage() {
     return { days: daysSince, status: "good", remaining }
   }
 
+  // Calculate totals for mobile summary
+  const totalCost = parts.reduce((acc, part) => acc + part.totalCost, 0)
+  const totalParts = parts.reduce((acc, part) => acc + part.quantity, 0)
+
+  // Get part type label from code
+  const getPartTypeLabel = (code: string) => {
+    const type = partTypes.find((t) => t.value === code)
+    return type?.text || code
+  }
+
   return (
     <div className="flex flex-col">
       <Header title="Spare Parts Tracking" />
       <div className="flex-1 p-4 md:p-6">
-        <DataGrid
+        {isMobile ? (
+          // Mobile Card View
+          <div className="space-y-4">
+            {/* Mobile Header */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Spare Parts</h2>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                </Button>
+                <Link href="/dashboard/settings/part-types">
+                  <Button variant="outline" size="sm">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            {/* Mobile Summary */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-purple-50 rounded-lg p-3">
+                <div className="text-xs text-purple-600">Total Cost</div>
+                <div className="text-sm font-bold text-purple-700">{formatCurrency(totalCost)}</div>
+              </div>
+              <div className="bg-indigo-50 rounded-lg p-3">
+                <div className="text-xs text-indigo-600">Total Parts</div>
+                <div className="text-sm font-bold text-indigo-700">{totalParts}</div>
+              </div>
+            </div>
+
+            {/* Mobile Record Cards */}
+            <div className="space-y-3">
+              {parts.map((part) => {
+                const statusInfo = getDaysInfo(part.installedDate, part.expectedLifeDays)
+                return (
+                  <div key={part.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-purple-500" />
+                        <span className="font-medium">{part.partName}</span>
+                      </div>
+                      <span className="text-lg font-bold text-purple-600">
+                        {formatCurrency(part.totalCost)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-sm flex-wrap">
+                      <div className="flex items-center gap-1">
+                        <BusIcon className="h-4 w-4 text-primary" />
+                        <span className="font-medium">{part.bus?.busNumber}</span>
+                      </div>
+                      <span className="px-2 py-0.5 bg-gray-100 rounded text-xs">
+                        {getPartTypeLabel(part.partType)}
+                      </span>
+                      {part.brand && (
+                        <span className="text-muted-foreground">{part.brand}</span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>{formatDate(part.purchaseDate)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Qty:</span>
+                        <span className="ml-1 font-medium">{part.quantity}</span>
+                        <span className="text-muted-foreground ml-1">×</span>
+                        <span className="ml-1">{formatCurrency(part.unitCost)}</span>
+                      </div>
+                    </div>
+
+                    {part.installedDate && (
+                      <div className="flex items-center justify-between text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Installed:</span>
+                          <span className="ml-1">{formatDate(part.installedDate)}</span>
+                        </div>
+                        {statusInfo.status !== "unknown" && (
+                          <span className={`font-medium ${
+                            statusInfo.status === "overdue" ? "text-red-600" :
+                            statusInfo.status === "warning" ? "text-yellow-600" : "text-green-600"
+                          }`}>
+                            {statusInfo.status === "overdue" ? `Overdue (${Math.abs(statusInfo.remaining!)}d)` :
+                             statusInfo.status === "warning" ? `Due soon (${statusInfo.remaining}d)` :
+                             `OK (${statusInfo.remaining}d left)`}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {part.supplier && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Supplier:</span>
+                        <span className="ml-1">{part.supplier}</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              {parts.length === 0 && !loading && (
+                <div className="p-8 text-center text-muted-foreground">
+                  No spare parts found
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Desktop DataGrid View
+          <DataGrid
           ref={dataGridRef}
           dataSource={parts}
           keyExpr="id"
@@ -370,6 +491,7 @@ export default function SparePartsPage() {
             />
           </Summary>
         </DataGrid>
+        )}
       </div>
     </div>
   )

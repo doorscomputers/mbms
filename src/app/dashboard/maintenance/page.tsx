@@ -23,9 +23,10 @@ import DataGrid, {
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, RefreshCw } from "lucide-react"
+import { Plus, RefreshCw, Wrench, Calendar, Bus as BusIcon } from "lucide-react"
 import { formatCurrency, formatDate, MAINTENANCE_TYPE_LABELS } from "@/lib/types"
 import Link from "next/link"
+import { useIsMobile } from "@/hooks/use-mobile"
 import "devextreme/dist/css/dx.light.css"
 
 interface Bus {
@@ -58,6 +59,7 @@ export default function MaintenancePage() {
   const [records, setRecords] = useState<MaintenanceRecord[]>([])
   const [buses, setBuses] = useState<Bus[]>([])
   const [loading, setLoading] = useState(true)
+  const isMobile = useIsMobile()
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -142,11 +144,111 @@ export default function MaintenancePage() {
     }
   }
 
+  // Calculate total maintenance cost
+  const totalCost = records.reduce((acc, record) => acc + record.cost, 0)
+
   return (
     <div className="flex flex-col">
       <Header title="Maintenance Records" />
       <div className="flex-1 p-4 md:p-6">
-        <DataGrid
+        {isMobile ? (
+          // Mobile Card View
+          <div className="space-y-4">
+            {/* Mobile Header */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Maintenance History</h2>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                </Button>
+                <Link href="/dashboard/maintenance/new">
+                  <Button size="sm">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            {/* Mobile Summary */}
+            <div className="bg-red-50 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-red-600">Total Maintenance Cost</div>
+                  <div className="text-xl font-bold text-red-700">{formatCurrency(totalCost)}</div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {records.length} records
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Record Cards */}
+            <div className="space-y-3">
+              {records.map((record) => (
+                <div key={record.id} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-red-500" />
+                      <span className="font-medium">
+                        {MAINTENANCE_TYPE_LABELS[record.maintenanceType as keyof typeof MAINTENANCE_TYPE_LABELS] || record.maintenanceType}
+                      </span>
+                    </div>
+                    <span className="text-lg font-bold text-red-600">
+                      {formatCurrency(record.cost)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span>{formatDate(record.date)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <BusIcon className="h-4 w-4 text-primary" />
+                      <span className="font-medium">{record.bus?.busNumber}</span>
+                    </div>
+                  </div>
+
+                  {record.description && (
+                    <div className="text-sm text-muted-foreground">
+                      {record.description}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t">
+                    {record.serviceProvider && (
+                      <div>
+                        <span className="text-muted-foreground">Provider:</span>
+                        <span className="ml-1 font-medium">{record.serviceProvider}</span>
+                      </div>
+                    )}
+                    {record.odometerReading && (
+                      <div>
+                        <span className="text-muted-foreground">Odometer:</span>
+                        <span className="ml-1 font-medium">{record.odometerReading.toLocaleString()} km</span>
+                      </div>
+                    )}
+                    {record.nextServiceDate && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Next Service:</span>
+                        <span className={`ml-1 font-medium ${new Date(record.nextServiceDate) < new Date() ? "text-red-600" : ""}`}>
+                          {formatDate(record.nextServiceDate)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {records.length === 0 && !loading && (
+                <div className="p-8 text-center text-muted-foreground">
+                  No maintenance records found
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Desktop DataGrid View
+          <DataGrid
           dataSource={records}
           keyExpr="id"
           showBorders={true}
@@ -258,6 +360,7 @@ export default function MaintenancePage() {
             />
           </Summary>
         </DataGrid>
+        )}
       </div>
     </div>
   )

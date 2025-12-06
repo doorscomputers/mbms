@@ -17,8 +17,9 @@ import DataGrid, {
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { ArrowLeft, Plus, RefreshCw } from "lucide-react"
+import { ArrowLeft, Plus, RefreshCw, Tag } from "lucide-react"
 import Link from "next/link"
+import { useIsMobile } from "@/hooks/use-mobile"
 import "devextreme/dist/css/dx.light.css"
 
 interface PartType {
@@ -35,6 +36,7 @@ interface PartType {
 export default function PartTypesPage() {
   const [partTypes, setPartTypes] = useState<PartType[]>([])
   const [loading, setLoading] = useState(true)
+  const isMobile = useIsMobile()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dataGridRef = useRef<any>(null)
 
@@ -132,7 +134,49 @@ export default function PartTypesPage() {
           </Link>
         </div>
 
-        <DataGrid
+        {isMobile ? (
+          // Mobile Card View
+          <div className="space-y-4">
+            {/* Mobile Header */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Part Types</h2>
+              <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="space-y-3">
+              {partTypes.sort((a, b) => a.sortOrder - b.sortOrder).map((type) => (
+                <div key={type.id} className="border rounded-lg p-4 space-y-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-primary" />
+                      <span className="font-medium">{type.label}</span>
+                    </div>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      type.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    }`}>
+                      {type.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <div className="text-sm text-muted-foreground font-mono">{type.code}</div>
+                  {type.description && (
+                    <div className="text-sm text-muted-foreground">{type.description}</div>
+                  )}
+                  <div className="text-xs text-muted-foreground">Order: {type.sortOrder}</div>
+                </div>
+              ))}
+              {partTypes.length === 0 && !loading && (
+                <div className="p-8 text-center text-muted-foreground">
+                  No part types found
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Desktop DataGrid View
+          <DataGrid
           ref={dataGridRef}
           dataSource={partTypes}
           keyExpr="id"
@@ -214,6 +258,7 @@ export default function PartTypesPage() {
             )}
           />
         </DataGrid>
+        )}
 
         <div className="mt-4 p-4 bg-muted rounded-lg">
           <h3 className="font-semibold mb-2">About Part Types</h3>

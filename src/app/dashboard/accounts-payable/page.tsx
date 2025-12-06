@@ -25,8 +25,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, RefreshCw, AlertTriangle, CheckCircle, Clock } from "lucide-react"
+import { Plus, RefreshCw, AlertTriangle, CheckCircle, Clock, CreditCard, Bus as BusIcon, Calendar } from "lucide-react"
 import { formatCurrency, formatDate, EXPENSE_CATEGORY_LABELS } from "@/lib/types"
+import { useIsMobile } from "@/hooks/use-mobile"
 import "devextreme/dist/css/dx.light.css"
 
 interface Bus {
@@ -71,6 +72,7 @@ export default function AccountsPayablePage() {
   const [buses, setBuses] = useState<Bus[]>([])
   const [summary, setSummary] = useState<APSummary | null>(null)
   const [loading, setLoading] = useState(true)
+  const isMobile = useIsMobile()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dataGridRef = useRef<any>(null)
 
@@ -240,8 +242,94 @@ export default function AccountsPayablePage() {
           </div>
         )}
 
-        {/* Data Grid */}
-        <DataGrid
+        {/* Data Grid or Mobile Cards */}
+        {isMobile ? (
+          // Mobile Card View
+          <div className="space-y-4">
+            {/* Mobile Header */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Payables List</h2>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                </Button>
+              </div>
+            </div>
+
+            {/* Mobile Record Cards */}
+            <div className="space-y-3">
+              {records.map((record) => {
+                const isOverdue = record.dueDate && new Date(record.dueDate) < new Date() && !record.isPaid
+                return (
+                  <div key={record.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className={`h-4 w-4 ${record.isPaid ? "text-green-500" : isOverdue ? "text-red-500" : "text-yellow-500"}`} />
+                        <span className="font-medium">{record.description}</span>
+                      </div>
+                      <span className={`text-lg font-bold ${record.isPaid ? "text-green-600" : isOverdue ? "text-red-600" : "text-yellow-600"}`}>
+                        {formatCurrency(record.amount)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-sm flex-wrap">
+                      <div className="flex items-center gap-1">
+                        <BusIcon className="h-4 w-4 text-primary" />
+                        <span className="font-medium">{record.bus?.busNumber}</span>
+                      </div>
+                      <span className="px-2 py-0.5 bg-gray-100 rounded text-xs">
+                        {EXPENSE_CATEGORY_LABELS[record.category] || record.category}
+                      </span>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        record.isPaid
+                          ? "bg-green-100 text-green-700"
+                          : isOverdue
+                            ? "bg-red-100 text-red-700"
+                            : "bg-yellow-100 text-yellow-700"
+                      }`}>
+                        {record.isPaid ? "Paid" : isOverdue ? "Overdue" : "Unpaid"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t">
+                      {record.dueDate && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className={isOverdue ? "text-red-600" : ""}>{formatDate(record.dueDate)}</span>
+                        </div>
+                      )}
+                      {record.supplier && (
+                        <div>
+                          <span className="text-muted-foreground">Supplier:</span>
+                          <span className="ml-1">{record.supplier}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {record.isPaid && record.paidDate && (
+                      <div className="text-sm text-green-600">
+                        <span>Paid {formatCurrency(record.paidAmount)} on {formatDate(record.paidDate)}</span>
+                      </div>
+                    )}
+
+                    {record.invoiceNumber && (
+                      <div className="text-sm text-muted-foreground">
+                        Invoice: {record.invoiceNumber}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              {records.length === 0 && !loading && (
+                <div className="p-8 text-center text-muted-foreground">
+                  No payables found
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Desktop DataGrid View
+          <DataGrid
           ref={dataGridRef}
           dataSource={records}
           keyExpr="id"
@@ -372,6 +460,7 @@ export default function AccountsPayablePage() {
             />
           </Summary>
         </DataGrid>
+        )}
       </div>
     </div>
   )

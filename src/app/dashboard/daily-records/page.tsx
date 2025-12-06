@@ -21,12 +21,13 @@ import DataGrid, {
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, RefreshCw, Calendar } from "lucide-react"
+import { Plus, RefreshCw, Calendar, Bus, User, Fuel } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/types"
 import Link from "next/link"
+import { useIsMobile } from "@/hooks/use-mobile"
 import "devextreme/dist/css/dx.light.css"
 
-interface Bus {
+interface BusData {
   id: string
   busNumber: string
   operator?: { name: string }
@@ -54,15 +55,16 @@ interface DailyRecord {
   excessCollection: number
   otherExpenses: number
   notes: string | null
-  bus: Bus
+  bus: BusData
   driver: Driver
 }
 
 export default function DailyRecordsPage() {
   const [records, setRecords] = useState<DailyRecord[]>([])
-  const [buses, setBuses] = useState<Bus[]>([])
+  const [buses, setBuses] = useState<BusData[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(true)
+  const isMobile = useIsMobile()
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -151,11 +153,125 @@ export default function DailyRecordsPage() {
     }
   }
 
+  // Calculate totals for mobile summary
+  const totals = records.reduce(
+    (acc, record) => ({
+      collection: acc.collection + record.totalCollection,
+      diesel: acc.diesel + record.dieselCost,
+      assigneeShare: acc.assigneeShare + record.assigneeShare,
+      driverShare: acc.driverShare + record.driverShare,
+    }),
+    { collection: 0, diesel: 0, assigneeShare: 0, driverShare: 0 }
+  )
+
   return (
     <div className="flex flex-col">
       <Header title="Daily Records" />
       <div className="flex-1 p-4 md:p-6">
-        <DataGrid
+        {isMobile ? (
+          // Mobile Card View
+          <div className="space-y-4">
+            {/* Mobile Header */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Daily Collections</h2>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+                  <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                </Button>
+                <Link href="/dashboard/daily-records/new">
+                  <Button size="sm">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            {/* Mobile Summary Cards */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-emerald-50 rounded-lg p-3">
+                <div className="text-xs text-emerald-600">Total Collection</div>
+                <div className="text-sm font-bold text-emerald-700">{formatCurrency(totals.collection)}</div>
+              </div>
+              <div className="bg-orange-50 rounded-lg p-3">
+                <div className="text-xs text-orange-600">Diesel Cost</div>
+                <div className="text-sm font-bold text-orange-700">{formatCurrency(totals.diesel)}</div>
+              </div>
+              <div className="bg-blue-50 rounded-lg p-3">
+                <div className="text-xs text-blue-600">Operator Share</div>
+                <div className="text-sm font-bold text-blue-700">{formatCurrency(totals.assigneeShare)}</div>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3">
+                <div className="text-xs text-green-600">Driver Share</div>
+                <div className="text-sm font-bold text-green-700">{formatCurrency(totals.driverShare)}</div>
+              </div>
+            </div>
+
+            {/* Mobile Record Cards */}
+            <div className="space-y-3">
+              {records.map((record) => (
+                <div key={record.id} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">{formatDate(record.date)}</span>
+                    </div>
+                    <span className="text-lg font-bold text-emerald-600">
+                      {formatCurrency(record.totalCollection)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-1">
+                      <Bus className="h-4 w-4 text-primary" />
+                      <span className="font-medium">{record.bus?.busNumber}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <User className="h-4 w-4 text-green-600" />
+                      <span>{record.driver?.name}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t">
+                    <div className="flex items-center gap-1">
+                      <Fuel className="h-4 w-4 text-orange-500" />
+                      <span className="text-muted-foreground">Diesel:</span>
+                      <span className="font-medium">{formatCurrency(record.dieselCost)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Liters:</span>
+                      <span className="ml-1 font-medium">{record.dieselLiters.toFixed(1)}L</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Operator:</span>
+                      <span className="ml-1 font-medium text-blue-600">{formatCurrency(record.assigneeShare)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Driver:</span>
+                      <span className="ml-1 font-medium text-green-600">{formatCurrency(record.driverShare)}</span>
+                    </div>
+                  </div>
+
+                  {record.tripCount > 0 && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Trips:</span>
+                      <span className="ml-1 font-medium">{record.tripCount}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {records.length === 0 && !loading && (
+                <div className="p-8 text-center text-muted-foreground">
+                  No records found
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Desktop DataGrid View
+          <DataGrid
           dataSource={records}
           keyExpr="id"
           showBorders={true}
@@ -307,6 +423,7 @@ export default function DailyRecordsPage() {
             />
           </Summary>
         </DataGrid>
+        )}
       </div>
     </div>
   )

@@ -40,10 +40,11 @@ import {
 import { toast } from "sonner"
 import { Plus, RefreshCw, Shield, User } from "lucide-react"
 import { formatDate } from "@/lib/types"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface UserData {
   id: string
-  email: string
+  username: string
   name: string
   role: string
   operatorId: string | null
@@ -65,10 +66,11 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const isMobile = useIsMobile()
 
   // Form state
   const [formData, setFormData] = useState({
-    email: "",
+    username: "",
     password: "",
     name: "",
     role: "OPERATOR",
@@ -125,7 +127,7 @@ export default function UsersPage() {
         toast.success("User created successfully")
         setDialogOpen(false)
         setFormData({
-          email: "",
+          username: "",
           password: "",
           name: "",
           role: "OPERATOR",
@@ -198,14 +200,15 @@ export default function UsersPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="username">Username</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
+                      id="username"
+                      type="text"
+                      value={formData.username}
                       onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
+                        setFormData({ ...formData, username: e.target.value })
                       }
+                      placeholder="e.g. john or ABC Company"
                       required
                     />
                   </div>
@@ -286,49 +289,25 @@ export default function UsersPage() {
             </Dialog>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Linked Operator</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            {isMobile ? (
+              // Mobile Card View
+              <div className="space-y-3">
                 {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {user.role === "ADMIN" ? (
-                          <Shield className="h-4 w-4 text-primary" />
-                        ) : (
-                          <User className="h-4 w-4 text-muted-foreground" />
-                        )}
-                        {user.name}
+                  <div key={user.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${user.role === "ADMIN" ? "bg-primary/10" : "bg-muted"}`}>
+                          {user.role === "ADMIN" ? (
+                            <Shield className="h-5 w-5 text-primary" />
+                          ) : (
+                            <User className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-semibold">{user.name}</div>
+                          <div className="text-sm text-muted-foreground">@{user.username}</div>
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                          user.role === "ADMIN"
-                            ? "bg-primary/10 text-primary"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {user.role}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {user.operator?.name || (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{formatDate(user.createdAt)}</TableCell>
-                    <TableCell>
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                           user.isActive
@@ -338,21 +317,103 @@ export default function UsersPage() {
                       >
                         {user.isActive ? "Active" : "Inactive"}
                       </span>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Role:</span>
+                        <span className={`ml-1 font-medium ${user.role === "ADMIN" ? "text-primary" : ""}`}>
+                          {user.role}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Created:</span>
+                        <span className="ml-1 font-medium">{formatDate(user.createdAt)}</span>
+                      </div>
+                      {user.operator && (
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground">Operator:</span>
+                          <span className="ml-1 font-medium">{user.operator.name}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ))}
                 {users.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="text-center text-muted-foreground py-8"
-                    >
-                      No users found
-                    </TableCell>
-                  </TableRow>
+                  <div className="p-4 text-center text-muted-foreground">
+                    No users found
+                  </div>
                 )}
-              </TableBody>
-            </Table>
+              </div>
+            ) : (
+              // Desktop Table View
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Username</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Linked Operator</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {user.role === "ADMIN" ? (
+                            <Shield className="h-4 w-4 text-primary" />
+                          ) : (
+                            <User className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          {user.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>{user.username}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                            user.role === "ADMIN"
+                              ? "bg-primary/10 text-primary"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {user.role}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {user.operator?.name || (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{formatDate(user.createdAt)}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                            user.isActive
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {user.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {users.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center text-muted-foreground py-8"
+                      >
+                        No users found
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
