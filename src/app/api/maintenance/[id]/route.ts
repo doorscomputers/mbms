@@ -54,6 +54,7 @@ export async function PUT(
       nextServiceDate,
       nextServiceOdometer,
       notes,
+      sparePartsData,
     } = body
 
     // Calculate total if individual costs provided
@@ -75,6 +76,7 @@ export async function PUT(
         laborCost: laborC,
         miscellaneousCost: miscC,
         totalCost: calculatedTotal,
+        sparePartsData: sparePartsData !== undefined ? sparePartsData : undefined,
         odometerReading: odometerReading ? parseFloat(odometerReading) : null,
         serviceProvider: serviceProvider || null,
         mechanicName: mechanicName || null,

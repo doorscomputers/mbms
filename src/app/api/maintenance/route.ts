@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
       nextServiceDate,
       nextServiceOdometer,
       notes,
+      sparePartsData,
     } = body
 
     if (!busId || !date || !maintenanceType) {
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
         laborCost: laborC,
         miscellaneousCost: miscC,
         totalCost: calculatedTotal,
+        sparePartsData: sparePartsData || null,
         odometerReading: odometerReading ? parseFloat(odometerReading) : null,
         serviceProvider: serviceProvider || null,
         mechanicName: mechanicName || null,

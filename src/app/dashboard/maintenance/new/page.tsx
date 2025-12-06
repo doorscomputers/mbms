@@ -31,6 +31,8 @@ import { toast } from "sonner"
 import { MAINTENANCE_TYPE_LABELS, formatCurrency } from "@/lib/types"
 import { ArrowLeft, Calculator } from "lucide-react"
 import Link from "next/link"
+import { SparePartsList } from "@/components/maintenance/spare-parts-list"
+import { SparePartItem } from "@/components/maintenance/add-spare-part-dialog"
 
 const formSchema = z.object({
   busId: z.string().min(1, "Bus is required"),
@@ -62,6 +64,10 @@ export default function NewMaintenancePage() {
   const router = useRouter()
   const [buses, setBuses] = useState<Bus[]>([])
   const [loading, setLoading] = useState(false)
+  const [spareParts, setSpareParts] = useState<SparePartItem[]>([])
+
+  // Calculate spare parts cost from the list
+  const sparePartsCost = spareParts.reduce((sum, part) => sum + part.totalCost, 0)
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -86,9 +92,17 @@ export default function NewMaintenancePage() {
 
   const watchedValues = form.watch()
   const totalCost =
-    parseFloat(watchedValues.sparePartsCost || "0") +
+    sparePartsCost +
     parseFloat(watchedValues.laborCost || "0") +
     parseFloat(watchedValues.miscellaneousCost || "0")
+
+  const handleAddSparePart = (part: SparePartItem) => {
+    setSpareParts(prev => [...prev, part])
+  }
+
+  const handleRemoveSparePart = (partId: string) => {
+    setSpareParts(prev => prev.filter(p => p.id !== partId))
+  }
 
   useEffect(() => {
     async function fetchBuses() {
@@ -107,15 +121,30 @@ export default function NewMaintenancePage() {
   const onSubmit = async (data: FormData) => {
     setLoading(true)
     try {
-      // Calculate total cost
-      const totalCost =
-        parseFloat(data.sparePartsCost || "0") +
+      // Calculate total cost using spare parts from state
+      const calculatedSparePartsCost = spareParts.reduce((sum, part) => sum + part.totalCost, 0)
+      const totalCostValue =
+        calculatedSparePartsCost +
         parseFloat(data.laborCost || "0") +
         parseFloat(data.miscellaneousCost || "0")
 
+      // Prepare spare parts data for storage
+      const sparePartsData = spareParts.map(part => ({
+        partName: part.partName,
+        partType: part.partType,
+        partTypeLabel: part.partTypeLabel,
+        brand: part.brand,
+        quantity: part.quantity,
+        unitCost: part.unitCost,
+        totalCost: part.totalCost,
+        existingPartId: part.existingPartId,
+      }))
+
       const maintenanceData = {
         ...data,
-        totalCost: totalCost.toString(),
+        sparePartsCost: calculatedSparePartsCost.toString(),
+        totalCost: totalCostValue.toString(),
+        sparePartsData: sparePartsData.length > 0 ? sparePartsData : null,
       }
 
       const res = await fetch("/api/maintenance", {
@@ -127,10 +156,10 @@ export default function NewMaintenancePage() {
       const result = await res.json()
       if (result.success) {
         // If createPayable is checked, create accounts payable records
-        if (data.createPayable && totalCost > 0) {
+        if (data.createPayable && totalCostValue > 0) {
           const payablePromises = []
 
-          if (parseFloat(data.sparePartsCost || "0") > 0) {
+          if (calculatedSparePartsCost > 0) {
             payablePromises.push(
               fetch("/api/accounts-payable", {
                 method: "POST",
@@ -139,7 +168,7 @@ export default function NewMaintenancePage() {
                   busId: data.busId,
                   category: "SPARE_PARTS",
                   description: `${MAINTENANCE_TYPE_LABELS[data.maintenanceType]} - Spare Parts`,
-                  amount: data.sparePartsCost,
+                  amount: calculatedSparePartsCost.toString(),
                   maintenanceId: result.data.id,
                 }),
               })
@@ -354,71 +383,69 @@ export default function NewMaintenancePage() {
                   <CardHeader>
                     <CardTitle>Cost Breakdown</CardTitle>
                     <CardDescription>
-                      Separate costs by category (Spare Parts, Labor, Miscellaneous)
+                      Add spare parts used in this repair, plus labor and miscellaneous costs
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="grid gap-4 sm:grid-cols-3">
-                    <FormField
-                      control={form.control}
-                      name="sparePartsCost"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Spare Parts Cost</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                  <CardContent className="space-y-6">
+                    {/* Spare Parts List */}
+                    <SparePartsList
+                      busId={watchedValues.busId}
+                      spareParts={spareParts}
+                      onAddPart={handleAddSparePart}
+                      onRemovePart={handleRemoveSparePart}
                     />
-                    <FormField
-                      control={form.control}
-                      name="laborCost"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Labor Cost</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="miscellaneousCost"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Miscellaneous</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="sm:col-span-3">
+
+                    {/* Labor and Miscellaneous Costs */}
+                    <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t">
                       <FormField
                         control={form.control}
-                        name="createPayable"
+                        name="laborCost"
                         render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormItem>
+                            <FormLabel>Labor Cost</FormLabel>
                             <FormControl>
-                              <Checkbox
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
+                              <Input type="number" step="0.01" placeholder="0.00" {...field} />
                             </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel>Create Accounts Payable</FormLabel>
-                              <FormDescription>
-                                Automatically create payable records for tracking unpaid maintenance costs
-                              </FormDescription>
-                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="miscellaneousCost"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Miscellaneous</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                            </FormControl>
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
+
+                    {/* Create Accounts Payable */}
+                    <FormField
+                      control={form.control}
+                      name="createPayable"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Create Accounts Payable</FormLabel>
+                            <FormDescription>
+                              Automatically create payable records for tracking unpaid maintenance costs
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
                   </CardContent>
                 </Card>
 
@@ -497,8 +524,8 @@ export default function NewMaintenancePage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Spare Parts</span>
-                  <span>{formatCurrency(parseFloat(watchedValues.sparePartsCost || "0"))}</span>
+                  <span className="text-muted-foreground">Spare Parts ({spareParts.length})</span>
+                  <span>{formatCurrency(sparePartsCost)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Labor</span>

@@ -17,7 +17,7 @@ datasource db {
 
 model User {
   id            String    @id @default(cuid())
-  email         String    @unique
+  username      String    @unique
   password      String
   name          String
   role          UserRole  @default(OPERATOR)
@@ -163,6 +163,7 @@ model MaintenanceRecord {
   laborCost         Decimal             @default(0) @db.Decimal(12, 2)
   miscellaneousCost Decimal             @default(0) @db.Decimal(12, 2)
   totalCost         Decimal             @default(0) @db.Decimal(12, 2) // Auto-calculated sum
+  sparePartsData    Json?               // Array of spare parts used: [{partName, partType, brand, quantity, unitCost, totalCost}]
 
   odometerReading   Decimal?            @db.Decimal(10, 2)
   serviceProvider   String?             // Shop or mechanic name
