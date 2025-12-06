@@ -359,7 +359,10 @@ export default function MaintenancePage() {
             <TotalItem
               column="totalCost"
               summaryType="sum"
-              customizeText={(data) => `Total: ${formatCurrency(data.value || 0)}`}
+              customizeText={(data) => {
+                const value = typeof data.value === 'number' ? data.value : 0
+                return `Total: ${formatCurrency(value)}`
+              }}
             />
             <TotalItem
               column="id"
