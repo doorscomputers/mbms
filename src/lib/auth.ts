@@ -18,7 +18,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { username: credentials.username as string },
-          include: { operator: true }
+          include: { operator: true, route: true }
         })
 
         if (!user || !user.isActive) {
@@ -41,6 +41,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           role: user.role,
           operatorId: user.operatorId,
           operatorName: user.operator?.name || null,
+          routeId: user.routeId,
+          routeName: user.route?.name || null,
         }
       }
     })
@@ -52,6 +54,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.role = user.role
         token.operatorId = user.operatorId
         token.operatorName = user.operatorName
+        token.routeId = user.routeId
+        token.routeName = user.routeName
       }
       return token
     },
@@ -61,6 +65,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.role = token.role as string
         session.user.operatorId = token.operatorId as string | null
         session.user.operatorName = token.operatorName as string | null
+        session.user.routeId = token.routeId as string | null
+        session.user.routeName = token.routeName as string | null
       }
       return session
     }

@@ -8,6 +8,8 @@ declare module "next-auth" {
     role: string
     operatorId: string | null
     operatorName: string | null
+    routeId: string | null
+    routeName: string | null
   }
 
   interface Session {
@@ -18,6 +20,8 @@ declare module "next-auth" {
       role: string
       operatorId: string | null
       operatorName: string | null
+      routeId: string | null
+      routeName: string | null
     }
   }
 }
@@ -28,5 +32,7 @@ declare module "next-auth/jwt" {
     role: string
     operatorId: string | null
     operatorName: string | null
+    routeId: string | null
+    routeName: string | null
   }
 }

@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, Pencil, RefreshCw, UserCog } from "lucide-react"
+import { Plus, Pencil, RefreshCw, UserCog, MapPin } from "lucide-react"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 interface Operator {
@@ -16,12 +17,15 @@ interface Operator {
   address: string | null
   sharePercent: number
   isActive: boolean
+  route?: { id: string; name: string } | null
 }
 
 export default function OperatorsPage() {
+  const { data: session } = useSession()
   const [operators, setOperators] = useState<Operator[]>([])
   const [loading, setLoading] = useState(true)
   const isMobile = useIsMobile()
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN"
 
   const fetchOperators = async () => {
     setLoading(true)
@@ -74,6 +78,12 @@ export default function OperatorsPage() {
                         <div>
                           <div className="font-semibold">{operator.name}</div>
                           <div className="text-sm text-muted-foreground">{operator.contactNumber || "No contact"}</div>
+                          {isSuperAdmin && operator.route && (
+                            <div className="flex items-center gap-1 text-xs text-purple-600">
+                              <MapPin className="h-3 w-3" />
+                              {operator.route.name}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${operator.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
@@ -115,6 +125,7 @@ export default function OperatorsPage() {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-2">Name</th>
+                      {isSuperAdmin && <th className="text-left p-2">Route</th>}
                       <th className="text-left p-2">Contact</th>
                       <th className="text-left p-2">Address</th>
                       <th className="text-left p-2">Share %</th>
@@ -126,6 +137,18 @@ export default function OperatorsPage() {
                     {operators.map((operator) => (
                       <tr key={operator.id} className="border-b hover:bg-muted/50">
                         <td className="p-2 font-medium">{operator.name}</td>
+                        {isSuperAdmin && (
+                          <td className="p-2">
+                            {operator.route ? (
+                              <span className="inline-flex items-center gap-1 text-purple-600">
+                                <MapPin className="h-3 w-3" />
+                                {operator.route.name}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                        )}
                         <td className="p-2">{operator.contactNumber || "-"}</td>
                         <td className="p-2">{operator.address || "-"}</td>
                         <td className="p-2">{operator.sharePercent}%</td>
@@ -145,7 +168,7 @@ export default function OperatorsPage() {
                     ))}
                     {operators.length === 0 && !loading && (
                       <tr>
-                        <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                        <td colSpan={isSuperAdmin ? 7 : 6} className="p-4 text-center text-muted-foreground">
                           No operators found
                         </td>
                       </tr>

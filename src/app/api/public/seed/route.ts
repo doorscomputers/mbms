@@ -17,7 +17,7 @@ async function seedDatabase() {
 
     // Create admin user if it doesn't exist
     const existingAdmin = await prisma.user.findFirst({
-      where: { role: 'ADMIN' }
+      where: { role: 'SUPER_ADMIN' }
     })
 
     if (!existingAdmin) {
@@ -27,7 +27,7 @@ async function seedDatabase() {
           username: 'admin',
           password: hashedPassword,
           name: 'Administrator',
-          role: 'ADMIN',
+          role: 'SUPER_ADMIN',
         }
       })
       results.push(`Created admin: ${admin.username} / password: admin123`)

@@ -14,6 +14,7 @@ import {
   LogOut,
   Shield,
   UserCircle,
+  MapPin,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -83,10 +84,16 @@ const menuItems = [
     adminOnly: true,
   },
   {
+    title: "Routes",
+    icon: MapPin,
+    href: "/dashboard/routes",
+    superAdminOnly: true,
+  },
+  {
     title: "User Accounts",
     icon: Shield,
     href: "/dashboard/users",
-    adminOnly: true,
+    superAdminOnly: true,
   },
   {
     title: "Accounts Payable",
@@ -106,18 +113,21 @@ const menuItems = [
     title: "Settings",
     icon: Settings,
     href: "/dashboard/settings",
-    adminOnly: true,
+    superAdminOnly: true,
   },
 ]
 
 export function AppSidebar() {
   const pathname = usePathname()
   const { data: session } = useSession()
-  const isAdmin = session?.user?.role === "ADMIN"
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN"
+  const isRouteAdmin = session?.user?.role === "ROUTE_ADMIN"
+  const isAdmin = isSuperAdmin || isRouteAdmin
 
   // Filter menu items based on role
   const filteredMenuItems = menuItems.filter(item => {
-    if (item.adminOnly && !isAdmin) return false
+    if ('superAdminOnly' in item && item.superAdminOnly && !isSuperAdmin) return false
+    if ('adminOnly' in item && item.adminOnly && !isAdmin) return false
     return true
   })
 

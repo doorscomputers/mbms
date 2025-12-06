@@ -2,29 +2,54 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
+import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
 import { ArrowLeft, Save, Trash2 } from "lucide-react"
 
+interface Route {
+  id: string
+  name: string
+}
+
 export default function EditOperatorPage() {
   const router = useRouter()
   const params = useParams()
+  const { data: session } = useSession()
   const id = params.id as string
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [routes, setRoutes] = useState<Route[]>([])
   const [form, setForm] = useState({
     name: "",
     contactNumber: "",
     address: "",
     sharePercent: "60",
     isActive: true,
+    routeId: "",
+    routeName: "",
   })
+
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN"
+  const isRouteAdmin = session?.user?.role === "ROUTE_ADMIN"
+
+  useEffect(() => {
+    // Only SUPER_ADMIN needs to fetch routes
+    if (isSuperAdmin) {
+      fetch("/api/routes")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success) setRoutes(data.data)
+        })
+    }
+  }, [isSuperAdmin])
 
   useEffect(() => {
     fetch(`/api/operators/${id}`)
@@ -38,6 +63,8 @@ export default function EditOperatorPage() {
             address: op.address || "",
             sharePercent: op.sharePercent?.toString() || "60",
             isActive: op.isActive,
+            routeId: op.routeId || "",
+            routeName: op.route?.name || "",
           })
         }
         setLoading(false)
@@ -62,6 +89,7 @@ export default function EditOperatorPage() {
           address: form.address || null,
           sharePercent: parseFloat(form.sharePercent) || 60,
           isActive: form.isActive,
+          routeId: isSuperAdmin ? (form.routeId || null) : undefined,
         }),
       })
       const data = await res.json()
@@ -162,6 +190,36 @@ export default function EditOperatorPage() {
                   onChange={(e) => setForm({ ...form, sharePercent: e.target.value })}
                 />
               </div>
+
+              {isSuperAdmin && (
+                <div className="space-y-2">
+                  <Label htmlFor="routeId">Route</Label>
+                  <Select
+                    value={form.routeId}
+                    onValueChange={(value) => setForm({ ...form, routeId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a route (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {routes.map((route) => (
+                        <SelectItem key={route.id} value={route.id}>
+                          {route.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {isRouteAdmin && form.routeName && (
+                <div className="space-y-2">
+                  <Label>Route</Label>
+                  <div className="p-2 bg-muted rounded-md text-sm">
+                    {form.routeName}
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-2 pt-4">
                 <Button type="submit" disabled={saving}>

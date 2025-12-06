@@ -1,13 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { getCurrentUser, canManageRoute } from '@/lib/auth-utils'
 
 export async function GET(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser()
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const activeOnly = searchParams.get('activeOnly') !== 'false'
 
+    // Build where clause based on user role
+    const where: { isActive?: boolean; routeId?: string } = {}
+    if (activeOnly) {
+      where.isActive = true
+    }
+
+    // ROUTE_ADMIN can only see drivers in their route
+    if (currentUser.role === 'ROUTE_ADMIN' && currentUser.routeId) {
+      where.routeId = currentUser.routeId
+    }
+
     const drivers = await prisma.driver.findMany({
-      where: activeOnly ? { isActive: true } : undefined,
+      where,
+      include: { route: true },
       orderBy: { name: 'asc' },
     })
 
@@ -23,14 +45,38 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser()
+
+    // Only SUPER_ADMIN and ROUTE_ADMIN can create drivers
+    if (!(await canManageRoute())) {
+      return NextResponse.json(
+        { success: false, error: 'Admin access required' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
-    const { name, licenseNumber, contactNumber, address, sharePercent } = body
+    const { name, licenseNumber, contactNumber, address, sharePercent, routeId } = body
 
     if (!name) {
       return NextResponse.json(
         { success: false, error: 'Driver name is required' },
         { status: 400 }
       )
+    }
+
+    // Determine the routeId to use
+    let finalRouteId = routeId || null
+
+    // ROUTE_ADMIN must assign to their own route
+    if (currentUser?.role === 'ROUTE_ADMIN') {
+      if (routeId && routeId !== currentUser.routeId) {
+        return NextResponse.json(
+          { success: false, error: 'You can only create drivers in your assigned route' },
+          { status: 403 }
+        )
+      }
+      finalRouteId = currentUser.routeId
     }
 
     const driver = await prisma.driver.create({
@@ -40,7 +86,9 @@ export async function POST(request: NextRequest) {
         contactNumber: contactNumber || null,
         address: address || null,
         sharePercent: sharePercent ? parseFloat(sharePercent) : 0,
+        routeId: finalRouteId,
       },
+      include: { route: true },
     })
 
     return NextResponse.json({ success: true, data: driver }, { status: 201 })

@@ -47,7 +47,16 @@ type FormData = z.infer<typeof formSchema>
 interface Bus {
   id: string
   busNumber: string
-  operator?: { id: string; name: string }
+  operator?: {
+    id: string
+    name: string
+    route?: {
+      id: string
+      name: string
+      operatorSharePercent: number | string
+      driverSharePercent: number | string
+    }
+  }
 }
 
 interface Driver {
@@ -109,6 +118,14 @@ export default function NewDailyRecordPage() {
   // Check if collection is below minimum
   const isBelowMinimum = grossCollection > 0 && grossCollection < minimumCollection
 
+  // Get route share percentages from selected bus
+  const routeOperatorShare = selectedBus?.operator?.route?.operatorSharePercent
+    ? parseFloat(String(selectedBus.operator.route.operatorSharePercent))
+    : 60
+  const routeDriverShare = selectedBus?.operator?.route?.driverSharePercent
+    ? parseFloat(String(selectedBus.operator.route.driverSharePercent))
+    : 40
+
   // Use the calculateShares function for automatic computation
   const computation = calculateShares(
     grossCollection,
@@ -117,8 +134,8 @@ export default function NewDailyRecordPage() {
     expenses,
     minimumCollection,
     settings.driverBasePay,
-    60, // operator share percent
-    40  // driver share percent
+    routeOperatorShare,
+    routeDriverShare
   )
 
   // Get the actual driver wage (override or computed)
@@ -205,7 +222,7 @@ export default function NewDailyRecordPage() {
         finalExcessCollection = 0
         finalAssigneeShare = collection - parseFloat(data.dieselCost) - parseFloat(data.coopContribution || "0") - parseFloat(data.otherExpenses || "0") - finalDriverWage
       } else {
-        // Normal computation
+        // Normal computation using route-specific shares
         const submitComputation = calculateShares(
           collection,
           parseFloat(data.dieselCost),
@@ -213,8 +230,8 @@ export default function NewDailyRecordPage() {
           parseFloat(data.otherExpenses || "0"),
           minimumCollection,
           settings.driverBasePay,
-          60,
-          40
+          routeOperatorShare,
+          routeDriverShare
         )
         finalDriverWage = submitComputation.driverShare
         finalAssigneeShare = submitComputation.assigneeShare
@@ -487,7 +504,7 @@ export default function NewDailyRecordPage() {
                         <div className="text-xs text-muted-foreground">Driver Wage</div>
                         <div className="text-lg font-semibold text-green-600">{formatCurrency(actualDriverWage)}</div>
                         <div className="text-xs text-muted-foreground">
-                          {isBelowMinimum ? "Manual entry" : `Base ${formatCurrency(settings.driverBasePay)} + 40% extra`}
+                          {isBelowMinimum ? "Manual entry" : `Base ${formatCurrency(settings.driverBasePay)} + ${routeDriverShare}% extra`}
                         </div>
                       </div>
                       <div className="rounded-lg bg-background p-3 border">
@@ -496,7 +513,7 @@ export default function NewDailyRecordPage() {
                           {formatCurrency(actualAssigneeShare)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {isBelowMinimum ? "Remaining after deductions" : "60% of extra"}
+                          {isBelowMinimum ? "Remaining after deductions" : `${routeOperatorShare}% of extra`}
                         </div>
                       </div>
                     </div>
@@ -550,6 +567,11 @@ export default function NewDailyRecordPage() {
                   <div className="rounded-lg bg-muted/50 p-3">
                     <div className="text-sm text-muted-foreground">Operator/Assignee</div>
                     <div className="font-medium">{selectedBus.operator?.name || "No operator"}</div>
+                    {selectedBus.operator?.route && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Route: {selectedBus.operator.route.name} ({routeOperatorShare}/{routeDriverShare} split)
+                      </div>
+                    )}
                   </div>
                 )}
 

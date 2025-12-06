@@ -1,29 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth-utils'
+import { getCurrentUser, canManageRoute } from '@/lib/auth-utils'
 
 export async function GET(request: NextRequest) {
   try {
     const currentUser = await getCurrentUser()
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const includeOperator = searchParams.get('includeOperator') === 'true'
     const activeOnly = searchParams.get('activeOnly') !== 'false'
 
-    const where: { isActive?: boolean; operatorId?: string } = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = {}
 
     if (activeOnly) {
       where.isActive = true
     }
 
-    // Filter by operator if not admin
-    if (currentUser?.role !== 'ADMIN' && currentUser?.operatorId) {
+    // Filter by operator for OPERATOR role
+    if (currentUser.role === 'OPERATOR' && currentUser.operatorId) {
       where.operatorId = currentUser.operatorId
+    }
+
+    // Filter by route for ROUTE_ADMIN (through operator.routeId)
+    if (currentUser.role === 'ROUTE_ADMIN' && currentUser.routeId) {
+      where.operator = { routeId: currentUser.routeId }
     }
 
     const buses = await prisma.bus.findMany({
       where,
       include: {
-        operator: includeOperator,
+        operator: includeOperator ? { include: { route: true } } : true,
       },
       orderBy: { busNumber: 'asc' },
     })
@@ -40,6 +54,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser()
+
+    // Only SUPER_ADMIN and ROUTE_ADMIN can create buses
+    if (!(await canManageRoute())) {
+      return NextResponse.json(
+        { success: false, error: 'Admin access required' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const { busNumber, plateNumber, model, capacity, operatorId } = body
 
@@ -50,6 +74,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ROUTE_ADMIN can only create buses for operators in their route
+    if (currentUser?.role === 'ROUTE_ADMIN' && operatorId) {
+      const operator = await prisma.operator.findUnique({ where: { id: operatorId } })
+      if (!operator || operator.routeId !== currentUser.routeId) {
+        return NextResponse.json(
+          { success: false, error: 'You can only create buses for operators in your route' },
+          { status: 403 }
+        )
+      }
+    }
+
     const bus = await prisma.bus.create({
       data: {
         busNumber,
@@ -58,7 +93,7 @@ export async function POST(request: NextRequest) {
         capacity: capacity ? parseInt(capacity) : null,
         operatorId: operatorId || null,
       },
-      include: { operator: true },
+      include: { operator: { include: { route: true } } },
     })
 
     return NextResponse.json({ success: true, data: bus }, { status: 201 })

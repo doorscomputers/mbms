@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
-import { Save, RefreshCw } from "lucide-react"
+import { Save, RefreshCw, MapPin } from "lucide-react"
 import { SETTINGS_KEYS } from "@/lib/types"
+import Link from "next/link"
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>({})
@@ -156,42 +157,31 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="driverShare">Driver Extra Share (%)</Label>
-                  <Input
-                    id="driverShare"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={settings[SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT] || "40"}
-                    onChange={(e) =>
-                      updateSetting(SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT, e.target.value)
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Driver&apos;s percentage of EXTRA collection
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="assigneeShare">Operator Extra Share (%)</Label>
-                  <Input
-                    id="assigneeShare"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={settings[SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT] || "60"}
-                    onChange={(e) =>
-                      updateSetting(SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT, e.target.value)
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Operator&apos;s percentage of EXTRA collection
-                  </p>
-                </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Share Percentages
+              </CardTitle>
+              <CardDescription>
+                Operator and Driver share percentages are now configured per Route
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Each route can have different share percentage settings for operators and drivers.
+                This allows flexibility for different route agreements.
+              </p>
+              <Link href="/dashboard/routes">
+                <Button variant="outline">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Manage Routes & Share Percentages
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 

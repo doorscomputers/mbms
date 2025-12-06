@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     // Check if any admin exists
     const existingAdmin = await prisma.user.findFirst({
-      where: { role: 'ADMIN' }
+      where: { role: 'SUPER_ADMIN' }
     })
 
     if (existingAdmin) {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         username,
         password: hashedPassword,
         name,
-        role: 'ADMIN',
+        role: 'SUPER_ADMIN',
       },
     })
 
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     const existingAdmin = await prisma.user.findFirst({
-      where: { role: 'ADMIN' }
+      where: { role: 'SUPER_ADMIN' }
     })
 
     return NextResponse.json({

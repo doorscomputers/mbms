@@ -12,6 +12,27 @@ datasource db {
 }
 
 // ============================================
+// ROUTES (TOP-LEVEL GROUPING)
+// ============================================
+
+model Route {
+  id                    String    @id @default(cuid())
+  name                  String    @unique
+  description           String?
+  operatorSharePercent  Decimal   @default(60) @db.Decimal(5, 2) // Default operator share %
+  driverSharePercent    Decimal   @default(40) @db.Decimal(5, 2) // Default driver share %
+  isActive              Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  operators     Operator[]
+  drivers       Driver[]
+  users         User[]    // ROUTE_ADMIN users
+
+  @@map("routes")
+}
+
+// ============================================
 // USER & AUTHENTICATION
 // ============================================
 
@@ -22,18 +43,21 @@ model User {
   name          String
   role          UserRole  @default(OPERATOR)
   operatorId    String?   @unique // Link to operator for OPERATOR role users
+  routeId       String?   // For ROUTE_ADMIN users
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   operator      Operator? @relation(fields: [operatorId], references: [id])
+  route         Route?    @relation(fields: [routeId], references: [id])
 
   @@map("users")
 }
 
 enum UserRole {
-  ADMIN      // Can see and manage everything
-  OPERATOR   // Can only see/manage their own data
+  SUPER_ADMIN  // Can see and manage everything
+  ROUTE_ADMIN  // Can manage their assigned route
+  OPERATOR     // Can only see/manage their own data
 }
 
 // ============================================
@@ -46,10 +70,12 @@ model Operator {
   contactNumber String?
   address       String?
   sharePercent  Decimal   @default(0) @db.Decimal(5, 2) // Percentage share of collections
+  routeId       String?   // Link to route
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  route         Route?    @relation(fields: [routeId], references: [id])
   buses         Bus[]
   user          User?     // Link to user account
 
@@ -91,10 +117,12 @@ model Driver {
   contactNumber String?
   address       String?
   sharePercent  Decimal   @default(0) @db.Decimal(5, 2) // Percentage share of collections
+  routeId       String?   // Link to route
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  route         Route?    @relation(fields: [routeId], references: [id])
   dailyRecords  DailyRecord[]
 
   @@map("drivers")

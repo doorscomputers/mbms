@@ -8,7 +8,7 @@ async function main() {
 
   // Create admin user if it doesn't exist
   const existingAdmin = await prisma.user.findFirst({
-    where: { role: 'ADMIN' }
+    where: { role: 'SUPER_ADMIN' }
   })
 
   if (!existingAdmin) {
@@ -18,7 +18,7 @@ async function main() {
         username: 'admin',
         password: hashedPassword,
         name: 'Administrator',
-        role: 'ADMIN',
+        role: 'SUPER_ADMIN',
       }
     })
     console.log(`Created admin user: ${admin.username} / password: admin123`)

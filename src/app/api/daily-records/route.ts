@@ -5,6 +5,14 @@ import { getCurrentUser } from '@/lib/auth-utils'
 export async function GET(request: NextRequest) {
   try {
     const currentUser = await getCurrentUser()
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const busId = searchParams.get('busId')
     const driverId = searchParams.get('driverId')
@@ -12,16 +20,17 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    const where: {
-      busId?: string
-      driverId?: string
-      date?: { gte?: Date; lte?: Date }
-      bus?: { operatorId: string }
-    } = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = {}
 
-    // Filter by operator if not admin
-    if (currentUser?.role !== 'ADMIN' && currentUser?.operatorId) {
+    // Filter by operator for OPERATOR role
+    if (currentUser.role === 'OPERATOR' && currentUser.operatorId) {
       where.bus = { operatorId: currentUser.operatorId }
+    }
+
+    // Filter by route for ROUTE_ADMIN (through bus.operator.routeId)
+    if (currentUser.role === 'ROUTE_ADMIN' && currentUser.routeId) {
+      where.bus = { operator: { routeId: currentUser.routeId } }
     }
 
     if (busId) where.busId = busId
@@ -35,7 +44,7 @@ export async function GET(request: NextRequest) {
     const records = await prisma.dailyRecord.findMany({
       where,
       include: {
-        bus: { include: { operator: true } },
+        bus: { include: { operator: { include: { route: true } } } },
         driver: true,
       },
       orderBy: { date: 'desc' },
@@ -54,6 +63,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser()
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
     const {
       date,
@@ -89,6 +107,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ROUTE_ADMIN can only create records for buses in their route
+    if (currentUser.role === 'ROUTE_ADMIN' && bus.operator?.routeId !== currentUser.routeId) {
+      return NextResponse.json(
+        { success: false, error: 'You can only create records for buses in your route' },
+        { status: 403 }
+      )
+    }
+
+    // OPERATOR can only create records for their own buses
+    if (currentUser.role === 'OPERATOR' && bus.operatorId !== currentUser.operatorId) {
+      return NextResponse.json(
+        { success: false, error: 'You can only create records for your own buses' },
+        { status: 403 }
+      )
+    }
+
     // User enters all values directly - no auto-calculation
     const record = await prisma.dailyRecord.create({
       data: {
@@ -112,7 +146,7 @@ export async function POST(request: NextRequest) {
         excessCollection: 0,
       },
       include: {
-        bus: { include: { operator: true } },
+        bus: { include: { operator: { include: { route: true } } } },
         driver: true,
       },
     })

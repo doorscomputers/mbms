@@ -1,16 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-utils'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser()
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const { id } = await params
     const record = await prisma.dailyRecord.findUnique({
       where: { id },
       include: {
-        bus: { include: { operator: true } },
+        bus: { include: { operator: { include: { route: true } } } },
         driver: true,
       },
     })
@@ -19,6 +29,22 @@ export async function GET(
       return NextResponse.json(
         { success: false, error: 'Record not found' },
         { status: 404 }
+      )
+    }
+
+    // ROUTE_ADMIN can only view records in their route
+    if (currentUser.role === 'ROUTE_ADMIN' && record.bus?.operator?.routeId !== currentUser.routeId) {
+      return NextResponse.json(
+        { success: false, error: 'Access denied' },
+        { status: 403 }
+      )
+    }
+
+    // OPERATOR can only view their own records
+    if (currentUser.role === 'OPERATOR' && record.bus?.operatorId !== currentUser.operatorId) {
+      return NextResponse.json(
+        { success: false, error: 'Access denied' },
+        { status: 403 }
       )
     }
 
@@ -37,6 +63,15 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser()
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const { id } = await params
     const body = await request.json()
     const {
@@ -51,6 +86,34 @@ export async function PUT(
       assigneeShare,
       notes,
     } = body
+
+    // Check existing record
+    const existing = await prisma.dailyRecord.findUnique({
+      where: { id },
+      include: { bus: { include: { operator: true } } },
+    })
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: 'Record not found' },
+        { status: 404 }
+      )
+    }
+
+    // ROUTE_ADMIN can only update records in their route
+    if (currentUser.role === 'ROUTE_ADMIN' && existing.bus?.operator?.routeId !== currentUser.routeId) {
+      return NextResponse.json(
+        { success: false, error: 'You can only update records in your route' },
+        { status: 403 }
+      )
+    }
+
+    // OPERATOR can only update their own records
+    if (currentUser.role === 'OPERATOR' && existing.bus?.operatorId !== currentUser.operatorId) {
+      return NextResponse.json(
+        { success: false, error: 'You can only update your own records' },
+        { status: 403 }
+      )
+    }
 
     // Verify bus and driver exist
     const bus = await prisma.bus.findUnique({
@@ -82,7 +145,7 @@ export async function PUT(
         notes: notes || null,
       },
       include: {
-        bus: { include: { operator: true } },
+        bus: { include: { operator: { include: { route: true } } } },
         driver: true,
       },
     })
@@ -108,7 +171,45 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser()
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const { id } = await params
+
+    // Check existing record
+    const existing = await prisma.dailyRecord.findUnique({
+      where: { id },
+      include: { bus: { include: { operator: true } } },
+    })
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: 'Record not found' },
+        { status: 404 }
+      )
+    }
+
+    // ROUTE_ADMIN can only delete records in their route
+    if (currentUser.role === 'ROUTE_ADMIN' && existing.bus?.operator?.routeId !== currentUser.routeId) {
+      return NextResponse.json(
+        { success: false, error: 'You can only delete records in your route' },
+        { status: 403 }
+      )
+    }
+
+    // OPERATOR can only delete their own records
+    if (currentUser.role === 'OPERATOR' && existing.bus?.operatorId !== currentUser.operatorId) {
+      return NextResponse.json(
+        { success: false, error: 'You can only delete your own records' },
+        { status: 403 }
+      )
+    }
+
     await prisma.dailyRecord.delete({ where: { id } })
 
     return NextResponse.json({ success: true, message: 'Record deleted' })

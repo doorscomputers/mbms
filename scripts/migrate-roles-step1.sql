@@ -1,0 +1,3 @@
+-- Step 1: Add the new enum values
+ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'SUPER_ADMIN';
+ALTER TYPE "UserRole" ADD VALUE IF NOT EXISTS 'ROUTE_ADMIN';

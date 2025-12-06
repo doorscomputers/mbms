@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, Pencil, RefreshCw, User } from "lucide-react"
+import { Plus, Pencil, RefreshCw, User, MapPin } from "lucide-react"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 interface Driver {
@@ -17,12 +18,15 @@ interface Driver {
   address: string | null
   sharePercent: number
   isActive: boolean
+  route?: { id: string; name: string } | null
 }
 
 export default function DriversPage() {
+  const { data: session } = useSession()
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(true)
   const isMobile = useIsMobile()
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN"
 
   const fetchDrivers = async () => {
     setLoading(true)
@@ -75,6 +79,12 @@ export default function DriversPage() {
                         <div>
                           <div className="font-semibold">{driver.name}</div>
                           <div className="text-sm text-muted-foreground">{driver.licenseNumber || "No license"}</div>
+                          {isSuperAdmin && driver.route && (
+                            <div className="flex items-center gap-1 text-xs text-purple-600">
+                              <MapPin className="h-3 w-3" />
+                              {driver.route.name}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${driver.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
@@ -120,6 +130,7 @@ export default function DriversPage() {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-2">Name</th>
+                      {isSuperAdmin && <th className="text-left p-2">Route</th>}
                       <th className="text-left p-2">License No.</th>
                       <th className="text-left p-2">Contact</th>
                       <th className="text-left p-2">Address</th>
@@ -132,6 +143,18 @@ export default function DriversPage() {
                     {drivers.map((driver) => (
                       <tr key={driver.id} className="border-b hover:bg-muted/50">
                         <td className="p-2 font-medium">{driver.name}</td>
+                        {isSuperAdmin && (
+                          <td className="p-2">
+                            {driver.route ? (
+                              <span className="inline-flex items-center gap-1 text-purple-600">
+                                <MapPin className="h-3 w-3" />
+                                {driver.route.name}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                        )}
                         <td className="p-2">{driver.licenseNumber || "-"}</td>
                         <td className="p-2">{driver.contactNumber || "-"}</td>
                         <td className="p-2">{driver.address || "-"}</td>
@@ -152,7 +175,7 @@ export default function DriversPage() {
                     ))}
                     {drivers.length === 0 && !loading && (
                       <tr>
-                        <td colSpan={7} className="p-4 text-center text-muted-foreground">
+                        <td colSpan={isSuperAdmin ? 8 : 7} className="p-4 text-center text-muted-foreground">
                           No drivers found
                         </td>
                       </tr>
