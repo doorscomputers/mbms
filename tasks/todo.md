@@ -1,53 +1,83 @@
-# Design Theme Implementation Plan
+# Fleet Management Reports Implementation
 
-## Task Overview
-Implement the new design theme from the provided screenshots across all pages.
+## Plan
+Create comprehensive reports for fleet management decision-making:
+
+1. **Driver Performance Comparison Report** - Compare collections across drivers
+2. **Collection by Day of Week Report** - Identify high-performing days
+3. **Diesel Consumption Monitoring** - Track fuel usage per bus with graphs
+4. **Additional Reports:**
+   - Bus Performance Report - Compare bus efficiency
+   - Top Performers Dashboard - Highlight best drivers/buses
 
 ## Todo Items
 
-- [x] Update globals.css with new color scheme and CSS variables
-- [x] Update layout.tsx with new fonts (Libre Baskerville, Lora, IBM Plex Mono)
-- [x] Verify sidebar and dashboard pages display correctly
-- [x] Test mobile responsiveness (build passes, existing responsive classes maintained)
+- [x] Create API endpoint for driver performance data (`/api/reports/driver-performance`)
+- [x] Create API endpoint for day-of-week analysis (`/api/reports/day-analysis`)
+- [x] Create API endpoint for diesel consumption (`/api/reports/diesel-consumption`)
+- [x] Create API endpoint for bus performance (`/api/reports/bus-performance`)
+- [x] Create the analytics reports page (`/dashboard/reports/analytics/page.tsx`)
+  - Driver Performance tab with comparison table/charts
+  - Day Analysis tab showing weekday patterns
+  - Diesel Consumption tab with totals and graph per bus
+  - Bus Performance tab
+  - Top Performers highlights
+- [x] Add navigation link to sidebar
+- [x] Test and verify mobile responsiveness
 
-## Review Section
+## Review
 
 ### Changes Made
 
-1. **globals.css** - Complete theme overhaul:
-   - Updated all CSS variables with warm brown/cream color palette
-   - Primary color: #a67c62 (warm brown)
-   - Background: #f5f1e6 (cream)
-   - Cards: #fffcf5 (off-white cream)
-   - Sidebar: #ece5d8 (light tan)
-   - Dark mode theme also updated with matching dark brown tones
-   - Border radius changed from 0.625rem to 0.25rem
-   - Added destructive-foreground variable
-   - Updated font variables to use new fonts
+1. **Created `/api/reports/driver-performance/route.ts`** - New API endpoint
+   - Fetches all drivers with their daily records
+   - Calculates: total collection, average collection, driver share, trips, passengers
+   - Returns ranked data by total collection
 
-2. **layout.tsx** - Typography update:
-   - Changed from Geist/Geist_Mono to Libre Baskerville, Lora, IBM Plex Mono
-   - Libre Baskerville for primary sans-serif
-   - Lora for serif text
-   - IBM Plex Mono for monospace
+2. **Created `/api/reports/day-analysis/route.ts`** - New API endpoint
+   - Aggregates collections by day of week (Monday-Sunday)
+   - Calculates averages for collection, trips, passengers, diesel
+   - Identifies best and worst performing days
 
-3. **login/page.tsx** - Fixed hardcoded background:
-   - Changed `bg-gray-50 dark:bg-gray-900` to `bg-background`
+3. **Created `/api/reports/diesel-consumption/route.ts`** - New API endpoint
+   - Groups diesel data by bus
+   - Calculates: total liters, total cost, km/L efficiency, cost per km
+   - Returns data for charts and detailed table
 
-4. **setup/page.tsx** - Fixed hardcoded background:
-   - Changed `bg-gray-50 dark:bg-gray-900` to `bg-background`
+4. **Created `/api/reports/bus-performance/route.ts`** - New API endpoint
+   - Compares bus performance including maintenance costs
+   - Calculates profitability, net income, profit margin
+   - Returns top performers by collection, efficiency, and profit
+
+5. **Created `/dashboard/reports/analytics/page.tsx`** - New analytics page
+   - 4 tabs: Driver Performance, Day Analysis, Diesel Consumption, Bus Performance
+   - Date range filters with quick select buttons
+   - Visual bar charts for comparisons
+   - Top 3 performers highlighted with trophy/award cards
+   - Responsive tables with key metrics
+   - Mobile-friendly design with collapsible columns
+
+6. **Updated `app-sidebar.tsx`**
+   - Added sub-items to Reports menu: Summary and Fleet Analytics
+
+### Files Created
+- `src/app/api/reports/driver-performance/route.ts`
+- `src/app/api/reports/day-analysis/route.ts`
+- `src/app/api/reports/diesel-consumption/route.ts`
+- `src/app/api/reports/bus-performance/route.ts`
+- `src/app/dashboard/reports/analytics/page.tsx`
+
+### Files Modified
+- `src/components/layout/app-sidebar.tsx` (added sub-menu for Reports)
 
 ### Build Status
-- Build completed successfully with no errors
-- All 36 pages generated without issues
+Build successful with no errors.
 
-### Theme Colors Applied
-| Element | Light Mode | Dark Mode |
-|---------|-----------|-----------|
-| Background | #f5f1e6 | #1a1714 |
-| Card | #fffcf5 | #2a2520 |
-| Primary | #a67c62 | #a67c62 |
-| Foreground | #4a3f35 | #f5f1e6 |
-| Muted | #ece5d8 | #3d342c |
-| Border | #dbd0ba | #3d342c |
-| Sidebar | #ece5d8 | #2a2520 |
+### Reports Overview
+
+| Report | Key Metrics | Use Case |
+|--------|-------------|----------|
+| Driver Performance | Collection, share, trips, rank | Compare drivers, incentive planning |
+| Day Analysis | Avg collection per weekday | Schedule optimization, identify peak days |
+| Diesel Consumption | Liters, cost, km/L by bus | Fuel cost control, efficiency monitoring |
+| Bus Performance | Collection, expenses, profit | Asset utilization, profitability tracking |

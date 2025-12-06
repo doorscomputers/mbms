@@ -13,6 +13,7 @@ import {
   CreditCard,
   LogOut,
   Shield,
+  UserCircle,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -96,6 +97,10 @@ const menuItems = [
     title: "Reports",
     icon: FileText,
     href: "/dashboard/reports",
+    subItems: [
+      { title: "Summary", href: "/dashboard/reports" },
+      { title: "Fleet Analytics", href: "/dashboard/reports/analytics" },
+    ],
   },
   {
     title: "Settings",
@@ -197,15 +202,28 @@ export function AppSidebar() {
                 </p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => signOut({ callbackUrl: "/login" })}
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start"
+                asChild
+              >
+                <Link href="/dashboard/profile">
+                  <UserCircle className="h-4 w-4 mr-2" />
+                  My Profile
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => signOut({ callbackUrl: "/login" })}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         )}
       </SidebarFooter>
