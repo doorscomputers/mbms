@@ -26,8 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
-import { formatCurrency, SETTINGS_KEYS } from "@/lib/types"
-import { ArrowLeft, Save } from "lucide-react"
+import { formatCurrency, calculateShares, SETTINGS_KEYS } from "@/lib/types"
+import { ArrowLeft, Save, Calculator } from "lucide-react"
 import Link from "next/link"
 
 const formSchema = z.object({
@@ -36,10 +36,8 @@ const formSchema = z.object({
   driverId: z.string().min(1, "Driver is required"),
   totalCollection: z.string().min(1, "Gross Collection is required"),
   dieselCost: z.string().min(1, "Diesel Cost is required"),
-  driverShare: z.string().min(1, "Driver Wage is required"),
   coopContribution: z.string().optional(),
   otherExpenses: z.string().optional(),
-  assigneeShare: z.string().min(1, "Assignee Share is required"),
   notes: z.string().optional(),
 })
 
@@ -56,12 +54,24 @@ interface Driver {
   name: string
 }
 
+interface Settings {
+  weekdayMinimum: number
+  sundayMinimum: number
+  defaultCoop: number
+  driverBasePay: number
+}
+
 export default function NewDailyRecordPage() {
   const router = useRouter()
   const [buses, setBuses] = useState<Bus[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(false)
-  const [defaultCoop, setDefaultCoop] = useState("1852")
+  const [settings, setSettings] = useState<Settings>({
+    weekdayMinimum: 6000,
+    sundayMinimum: 5000,
+    defaultCoop: 1852,
+    driverBasePay: 800,
+  })
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -71,10 +81,8 @@ export default function NewDailyRecordPage() {
       driverId: "",
       totalCollection: "",
       dieselCost: "",
-      driverShare: "",
       coopContribution: "",
       otherExpenses: "",
-      assigneeShare: "",
       notes: "",
     },
   })
@@ -87,15 +95,26 @@ export default function NewDailyRecordPage() {
   const selectedDate = watchedValues.date ? new Date(watchedValues.date) : new Date()
   const isSunday = selectedDate.getDay() === 0
 
-  // Calculate totals for summary
+  // Get minimum collection based on day
+  const minimumCollection = isSunday ? settings.sundayMinimum : settings.weekdayMinimum
+
+  // Calculate shares automatically
   const grossCollection = parseFloat(watchedValues.totalCollection || "0")
   const dieselCost = parseFloat(watchedValues.dieselCost || "0")
-  const driverWage = parseFloat(watchedValues.driverShare || "0")
   const coop = parseFloat(watchedValues.coopContribution || "0")
   const expenses = parseFloat(watchedValues.otherExpenses || "0")
-  const assigneeShare = parseFloat(watchedValues.assigneeShare || "0")
-  const totalExpenses = dieselCost + driverWage + coop + expenses + assigneeShare
-  const balance = grossCollection - totalExpenses
+
+  // Use the calculateShares function for automatic computation
+  const computation = calculateShares(
+    grossCollection,
+    dieselCost,
+    coop,
+    expenses,
+    minimumCollection,
+    settings.driverBasePay,
+    60, // operator share percent
+    40  // driver share percent
+  )
 
   useEffect(() => {
     async function fetchData() {
@@ -113,16 +132,22 @@ export default function NewDailyRecordPage() {
         if (busesData.success) setBuses(busesData.data)
         if (driversData.success) setDrivers(driversData.data)
 
-        // Set default coop from settings
+        // Set settings from API
         if (settingsData.success && settingsData.data) {
-          const coopValue = settingsData.data[SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION] || "1852"
-          setDefaultCoop(coopValue)
+          const newSettings = {
+            weekdayMinimum: parseFloat(settingsData.data[SETTINGS_KEYS.WEEKDAY_MINIMUM_COLLECTION] || "6000"),
+            sundayMinimum: parseFloat(settingsData.data[SETTINGS_KEYS.SUNDAY_MINIMUM_COLLECTION] || "5000"),
+            defaultCoop: parseFloat(settingsData.data[SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION] || "1852"),
+            driverBasePay: parseFloat(settingsData.data[SETTINGS_KEYS.DRIVER_BASE_PAY] || "800"),
+          }
+          setSettings(newSettings)
+
           // Check if today is Sunday
           const today = new Date()
           if (today.getDay() === 0) {
             form.setValue("coopContribution", "0")
           } else {
-            form.setValue("coopContribution", coopValue)
+            form.setValue("coopContribution", newSettings.defaultCoop.toString())
           }
         }
       } catch (error) {
@@ -142,26 +167,43 @@ export default function NewDailyRecordPage() {
         form.setValue("coopContribution", "0")
       } else {
         // Weekday - restore default coop
-        form.setValue("coopContribution", defaultCoop)
+        form.setValue("coopContribution", settings.defaultCoop.toString())
       }
     }
-  }, [watchedValues.date, defaultCoop, form])
+  }, [watchedValues.date, settings.defaultCoop, form])
 
   const onSubmit = async (data: FormData) => {
     setLoading(true)
     try {
+      // Recalculate shares for submission
+      const submitComputation = calculateShares(
+        parseFloat(data.totalCollection),
+        parseFloat(data.dieselCost),
+        parseFloat(data.coopContribution || "0"),
+        parseFloat(data.otherExpenses || "0"),
+        minimumCollection,
+        settings.driverBasePay,
+        60,
+        40
+      )
+
       const res = await fetch("/api/daily-records", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...data,
-          // Send numeric values
+          date: data.date,
+          busId: data.busId,
+          driverId: data.driverId,
           totalCollection: parseFloat(data.totalCollection),
           dieselCost: parseFloat(data.dieselCost),
-          driverShare: parseFloat(data.driverShare),
           coopContribution: parseFloat(data.coopContribution || "0"),
           otherExpenses: parseFloat(data.otherExpenses || "0"),
-          assigneeShare: parseFloat(data.assigneeShare),
+          notes: data.notes || "",
+          // Computed values
+          minimumCollection: minimumCollection,
+          excessCollection: submitComputation.excessCollection,
+          driverShare: submitComputation.driverShare,
+          assigneeShare: submitComputation.assigneeShare,
         }),
       })
 
@@ -279,9 +321,9 @@ export default function NewDailyRecordPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Daily Entry</CardTitle>
-                    <CardDescription>Enter the collection and distribution amounts</CardDescription>
+                    <CardDescription>Enter the collection and costs - shares are computed automatically</CardDescription>
                   </CardHeader>
-                  <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                  <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <FormField
                       control={form.control}
                       name="totalCollection"
@@ -310,19 +352,6 @@ export default function NewDailyRecordPage() {
                     />
                     <FormField
                       control={form.control}
-                      name="driverShare"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Driver Wage</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
                       name="coopContribution"
                       render={({ field }) => (
                         <FormItem>
@@ -339,7 +368,7 @@ export default function NewDailyRecordPage() {
                       name="otherExpenses"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Expenses</FormLabel>
+                          <FormLabel>Other Expenses</FormLabel>
                           <FormControl>
                             <Input type="number" step="0.01" placeholder="0.00" {...field} />
                           </FormControl>
@@ -347,19 +376,41 @@ export default function NewDailyRecordPage() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="assigneeShare"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Assignee</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  </CardContent>
+                </Card>
+
+                {/* Computed Values Display */}
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Calculator className="h-4 w-4" />
+                      Auto-Computed Values
+                    </CardTitle>
+                    <CardDescription>These values are calculated automatically based on the formula</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-4 sm:grid-cols-4">
+                      <div className="rounded-lg bg-background p-3 border">
+                        <div className="text-xs text-muted-foreground">Minimum Collection</div>
+                        <div className="text-lg font-semibold">{formatCurrency(minimumCollection)}</div>
+                        <div className="text-xs text-muted-foreground">{isSunday ? "Sunday rate" : "Weekday rate"}</div>
+                      </div>
+                      <div className="rounded-lg bg-background p-3 border">
+                        <div className="text-xs text-muted-foreground">Extra Collection</div>
+                        <div className="text-lg font-semibold text-emerald-600">{formatCurrency(computation.excessCollection)}</div>
+                        <div className="text-xs text-muted-foreground">Above minimum</div>
+                      </div>
+                      <div className="rounded-lg bg-background p-3 border">
+                        <div className="text-xs text-muted-foreground">Driver Wage</div>
+                        <div className="text-lg font-semibold text-green-600">{formatCurrency(computation.driverShare)}</div>
+                        <div className="text-xs text-muted-foreground">Base {formatCurrency(settings.driverBasePay)} + 40% extra</div>
+                      </div>
+                      <div className="rounded-lg bg-background p-3 border">
+                        <div className="text-xs text-muted-foreground">Assignee Share</div>
+                        <div className="text-lg font-semibold text-blue-600">{formatCurrency(computation.assigneeShare)}</div>
+                        <div className="text-xs text-muted-foreground">60% of extra</div>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -425,41 +476,53 @@ export default function NewDailyRecordPage() {
                     <span>Gross Collection</span>
                     <span className="font-medium">{formatCurrency(grossCollection)}</span>
                   </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Minimum</span>
+                    <span className="font-medium">{formatCurrency(minimumCollection)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-emerald-600">
+                    <span>Extra</span>
+                    <span className="font-medium">{formatCurrency(computation.excessCollection)}</span>
+                  </div>
                 </div>
 
                 <div className="space-y-2 border-t pt-4">
-                  <div className="text-sm font-medium text-muted-foreground">Distribution</div>
+                  <div className="text-sm font-medium text-muted-foreground">Deductions</div>
                   <div className="flex justify-between text-sm">
                     <span>Diesel Cost</span>
                     <span className="text-red-600">-{formatCurrency(dieselCost)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Driver Wage</span>
-                    <span className="text-red-600">-{formatCurrency(driverWage)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Coop</span>
                     <span className="text-red-600">-{formatCurrency(coop)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span>Expenses</span>
+                    <span>Other Expenses</span>
                     <span className="text-red-600">-{formatCurrency(expenses)}</span>
                   </div>
+                </div>
+
+                <div className="space-y-2 border-t pt-4">
+                  <div className="text-sm font-medium text-muted-foreground">Share Distribution</div>
                   <div className="flex justify-between text-sm">
-                    <span>Assignee</span>
-                    <span className="text-red-600">-{formatCurrency(assigneeShare)}</span>
+                    <span>Driver Wage</span>
+                    <span className="font-bold text-green-600">{formatCurrency(computation.driverShare)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Assignee Share</span>
+                    <span className="font-bold text-blue-600">{formatCurrency(computation.assigneeShare)}</span>
                   </div>
                 </div>
 
                 <div className="border-t pt-4">
                   <div className="flex justify-between">
-                    <span className="font-bold">Balance</span>
-                    <span className={`text-xl font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {formatCurrency(balance)}
+                    <span className="font-bold">Net Balance</span>
+                    <span className={`text-xl font-bold ${computation.netIncome >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {formatCurrency(computation.netIncome)}
                     </span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    Should be ₱0.00 if all amounts are correct
+                    Should be close to ₱0.00 if formula is correct
                   </div>
                 </div>
               </CardContent>
