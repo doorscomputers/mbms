@@ -16,15 +16,23 @@ import DataGrid, {
   Export,
   Summary,
   TotalItem,
-  Format,
 } from "devextreme-react/data-grid"
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, RefreshCw, Calendar, Bus, User, Fuel } from "lucide-react"
+import { Plus, RefreshCw, Calendar, Bus, User, Fuel, Filter } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/types"
 import Link from "next/link"
 import { useIsMobile } from "@/hooks/use-mobile"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import "devextreme/dist/css/dx.light.css"
 
 interface BusData {
@@ -59,18 +67,143 @@ interface DailyRecord {
   driver: Driver
 }
 
+type DateFilterOption =
+  | "all"
+  | "today"
+  | "yesterday"
+  | "this_week"
+  | "last_week"
+  | "this_month"
+  | "last_month"
+  | "this_quarter"
+  | "last_quarter"
+  | "this_year"
+  | "last_year"
+  | "custom"
+
+function getDateRange(option: DateFilterOption): { startDate: string | null; endDate: string | null } {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  switch (option) {
+    case "all":
+      return { startDate: null, endDate: null }
+
+    case "today":
+      return {
+        startDate: today.toISOString().split("T")[0],
+        endDate: today.toISOString().split("T")[0],
+      }
+
+    case "yesterday": {
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+      return {
+        startDate: yesterday.toISOString().split("T")[0],
+        endDate: yesterday.toISOString().split("T")[0],
+      }
+    }
+
+    case "this_week": {
+      const startOfWeek = new Date(today)
+      const day = startOfWeek.getDay()
+      const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1) // Monday
+      startOfWeek.setDate(diff)
+      return {
+        startDate: startOfWeek.toISOString().split("T")[0],
+        endDate: today.toISOString().split("T")[0],
+      }
+    }
+
+    case "last_week": {
+      const startOfLastWeek = new Date(today)
+      const day = startOfLastWeek.getDay()
+      const diff = startOfLastWeek.getDate() - day + (day === 0 ? -6 : 1) - 7
+      startOfLastWeek.setDate(diff)
+      const endOfLastWeek = new Date(startOfLastWeek)
+      endOfLastWeek.setDate(endOfLastWeek.getDate() + 6)
+      return {
+        startDate: startOfLastWeek.toISOString().split("T")[0],
+        endDate: endOfLastWeek.toISOString().split("T")[0],
+      }
+    }
+
+    case "this_month": {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      return {
+        startDate: startOfMonth.toISOString().split("T")[0],
+        endDate: today.toISOString().split("T")[0],
+      }
+    }
+
+    case "last_month": {
+      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
+      return {
+        startDate: startOfLastMonth.toISOString().split("T")[0],
+        endDate: endOfLastMonth.toISOString().split("T")[0],
+      }
+    }
+
+    case "this_quarter": {
+      const quarter = Math.floor(now.getMonth() / 3)
+      const startOfQuarter = new Date(now.getFullYear(), quarter * 3, 1)
+      return {
+        startDate: startOfQuarter.toISOString().split("T")[0],
+        endDate: today.toISOString().split("T")[0],
+      }
+    }
+
+    case "last_quarter": {
+      const quarter = Math.floor(now.getMonth() / 3)
+      const startOfLastQuarter = new Date(now.getFullYear(), (quarter - 1) * 3, 1)
+      const endOfLastQuarter = new Date(now.getFullYear(), quarter * 3, 0)
+      return {
+        startDate: startOfLastQuarter.toISOString().split("T")[0],
+        endDate: endOfLastQuarter.toISOString().split("T")[0],
+      }
+    }
+
+    case "this_year": {
+      const startOfYear = new Date(now.getFullYear(), 0, 1)
+      return {
+        startDate: startOfYear.toISOString().split("T")[0],
+        endDate: today.toISOString().split("T")[0],
+      }
+    }
+
+    case "last_year": {
+      const startOfLastYear = new Date(now.getFullYear() - 1, 0, 1)
+      const endOfLastYear = new Date(now.getFullYear() - 1, 11, 31)
+      return {
+        startDate: startOfLastYear.toISOString().split("T")[0],
+        endDate: endOfLastYear.toISOString().split("T")[0],
+      }
+    }
+
+    default:
+      return { startDate: null, endDate: null }
+  }
+}
+
 export default function DailyRecordsPage() {
   const [records, setRecords] = useState<DailyRecord[]>([])
+  const [filteredRecords, setFilteredRecords] = useState<DailyRecord[]>([])
   const [buses, setBuses] = useState<BusData[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(true)
   const isMobile = useIsMobile()
 
+  // Date filter states
+  const [dateFilter, setDateFilter] = useState<DateFilterOption>("this_month")
+  const [customStartDate, setCustomStartDate] = useState<string>("")
+  const [customEndDate, setCustomEndDate] = useState<string>("")
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const [recordsRes, busesRes, driversRes] = await Promise.all([
-        fetch("/api/daily-records?limit=100"),
+        fetch("/api/daily-records?limit=500"),
         fetch("/api/buses?includeOperator=true"),
         fetch("/api/drivers"),
       ])
@@ -93,6 +226,33 @@ export default function DailyRecordsPage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Apply date filter
+  useEffect(() => {
+    let startDate: string | null = null
+    let endDate: string | null = null
+
+    if (dateFilter === "custom") {
+      startDate = customStartDate || null
+      endDate = customEndDate || null
+    } else {
+      const range = getDateRange(dateFilter)
+      startDate = range.startDate
+      endDate = range.endDate
+    }
+
+    if (!startDate && !endDate) {
+      setFilteredRecords(records)
+    } else {
+      const filtered = records.filter((record) => {
+        const recordDate = record.date.split("T")[0]
+        if (startDate && recordDate < startDate) return false
+        if (endDate && recordDate > endDate) return false
+        return true
+      })
+      setFilteredRecords(filtered)
+    }
+  }, [records, dateFilter, customStartDate, customEndDate])
 
   const onRowInserted = async (e: { data: Partial<DailyRecord> }) => {
     try {
@@ -153,8 +313,8 @@ export default function DailyRecordsPage() {
     }
   }
 
-  // Calculate totals for mobile summary
-  const totals = records.reduce(
+  // Calculate totals for filtered records
+  const totals = filteredRecords.reduce(
     (acc, record) => ({
       collection: acc.collection + record.totalCollection,
       diesel: acc.diesel + record.dieselCost,
@@ -164,10 +324,81 @@ export default function DailyRecordsPage() {
     { collection: 0, diesel: 0, assigneeShare: 0, driverShare: 0 }
   )
 
+  // Date filter label
+  const getDateFilterLabel = () => {
+    if (dateFilter === "custom" && customStartDate && customEndDate) {
+      return `${formatDate(customStartDate)} - ${formatDate(customEndDate)}`
+    }
+    if (dateFilter === "custom") return "Custom Range"
+
+    const range = getDateRange(dateFilter)
+    if (!range.startDate) return "All Records"
+    if (range.startDate === range.endDate) return formatDate(range.startDate)
+    return `${formatDate(range.startDate)} - ${formatDate(range.endDate || range.startDate)}`
+  }
+
   return (
     <div className="flex flex-col">
       <Header title="Daily Records" />
       <div className="flex-1 p-4 md:p-6">
+        {/* Date Filter Section */}
+        <div className="mb-4 p-4 bg-muted/30 rounded-lg border">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm flex items-center gap-1">
+                <Filter className="h-3.5 w-3.5" />
+                Date Filter
+              </Label>
+              <Select value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilterOption)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Records</SelectItem>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="yesterday">Yesterday</SelectItem>
+                  <SelectItem value="this_week">This Week</SelectItem>
+                  <SelectItem value="last_week">Last Week</SelectItem>
+                  <SelectItem value="this_month">This Month</SelectItem>
+                  <SelectItem value="last_month">Last Month</SelectItem>
+                  <SelectItem value="this_quarter">This Quarter</SelectItem>
+                  <SelectItem value="last_quarter">Last Quarter</SelectItem>
+                  <SelectItem value="this_year">This Year</SelectItem>
+                  <SelectItem value="last_year">Last Year</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {dateFilter === "custom" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Start Date</Label>
+                  <Input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-[150px]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">End Date</Label>
+                  <Input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-[150px]"
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="flex-1 text-right text-sm text-muted-foreground">
+              <span className="font-medium">{filteredRecords.length}</span> records | {getDateFilterLabel()}
+            </div>
+          </div>
+        </div>
+
         {isMobile ? (
           // Mobile Card View
           <div className="space-y-4">
@@ -208,7 +439,7 @@ export default function DailyRecordsPage() {
 
             {/* Mobile Record Cards */}
             <div className="space-y-3">
-              {records.map((record) => (
+              {filteredRecords.map((record) => (
                 <div key={record.id} className="border rounded-lg p-4 space-y-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
@@ -262,9 +493,9 @@ export default function DailyRecordsPage() {
                   )}
                 </div>
               ))}
-              {records.length === 0 && !loading && (
+              {filteredRecords.length === 0 && !loading && (
                 <div className="p-8 text-center text-muted-foreground">
-                  No records found
+                  No records found for the selected period
                 </div>
               )}
             </div>
@@ -272,7 +503,7 @@ export default function DailyRecordsPage() {
         ) : (
           // Desktop DataGrid View
           <DataGrid
-          dataSource={records}
+          dataSource={filteredRecords}
           keyExpr="id"
           showBorders={true}
           showRowLines={true}
@@ -351,18 +582,32 @@ export default function DailyRecordsPage() {
               displayExpr="name"
             />
           </Column>
-          <Column dataField="totalCollection" caption="Collection" dataType="number" width={120}>
-            <Format type="currency" precision={2} />
-          </Column>
-          <Column dataField="dieselCost" caption="Diesel Cost" dataType="number" width={110}>
-            <Format type="currency" precision={2} />
-          </Column>
-          <Column dataField="dieselLiters" caption="Liters" dataType="number" width={80}>
-            <Format type="fixedPoint" precision={2} />
-          </Column>
-          <Column dataField="coopContribution" caption="Coop" dataType="number" width={100}>
-            <Format type="currency" precision={2} />
-          </Column>
+          <Column
+            dataField="totalCollection"
+            caption="Collection"
+            dataType="number"
+            width={120}
+            cellRender={(data) => (
+              <span className="font-medium">{formatCurrency(data.value || 0)}</span>
+            )}
+          />
+          <Column
+            dataField="dieselCost"
+            caption="Diesel Cost"
+            dataType="number"
+            width={110}
+            cellRender={(data) => (
+              <span className="text-orange-600">{formatCurrency(data.value || 0)}</span>
+            )}
+          />
+          <Column dataField="dieselLiters" caption="Liters" dataType="number" width={80} format="#,##0.00" />
+          <Column
+            dataField="coopContribution"
+            caption="Coop"
+            dataType="number"
+            width={100}
+            cellRender={(data) => formatCurrency(data.value || 0)}
+          />
           <Column
             dataField="assigneeShare"
             caption="Assignee Share"
@@ -388,38 +633,42 @@ export default function DailyRecordsPage() {
             )}
           />
           <Column dataField="tripCount" caption="Trips" dataType="number" width={70} />
-          <Column dataField="minimumCollection" caption="Min Collection" dataType="number" visible={false}>
-            <Format type="currency" precision={2} />
-          </Column>
-          <Column dataField="otherExpenses" caption="Other Exp." dataType="number" visible={false}>
-            <Format type="currency" precision={2} />
-          </Column>
+          <Column
+            dataField="minimumCollection"
+            caption="Min Collection"
+            dataType="number"
+            visible={false}
+            cellRender={(data) => formatCurrency(data.value || 0)}
+          />
+          <Column
+            dataField="otherExpenses"
+            caption="Other Exp."
+            dataType="number"
+            visible={false}
+            cellRender={(data) => formatCurrency(data.value || 0)}
+          />
           <Column dataField="notes" caption="Notes" visible={false} />
 
           <Summary>
             <TotalItem
               column="totalCollection"
               summaryType="sum"
-              valueFormat={{ type: "currency", precision: 2 }}
-              displayFormat="Total: {0}"
+              customizeText={(data) => `Total: ${formatCurrency(Number(data.value) || 0)}`}
             />
             <TotalItem
               column="dieselCost"
               summaryType="sum"
-              valueFormat={{ type: "currency", precision: 2 }}
-              displayFormat="Total: {0}"
+              customizeText={(data) => `Total: ${formatCurrency(Number(data.value) || 0)}`}
             />
             <TotalItem
               column="assigneeShare"
               summaryType="sum"
-              valueFormat={{ type: "currency", precision: 2 }}
-              displayFormat="Total: {0}"
+              customizeText={(data) => `Total: ${formatCurrency(Number(data.value) || 0)}`}
             />
             <TotalItem
               column="driverShare"
               summaryType="sum"
-              valueFormat={{ type: "currency", precision: 2 }}
-              displayFormat="Total: {0}"
+              customizeText={(data) => `Total: ${formatCurrency(Number(data.value) || 0)}`}
             />
           </Summary>
         </DataGrid>
