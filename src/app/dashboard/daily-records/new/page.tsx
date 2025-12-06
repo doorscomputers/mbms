@@ -271,7 +271,7 @@ export default function NewDailyRecordPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Bus</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select bus" />
@@ -296,7 +296,7 @@ export default function NewDailyRecordPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Driver</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select driver" />
