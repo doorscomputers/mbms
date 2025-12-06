@@ -21,6 +21,7 @@ export async function GET(
       where: { id },
       include: {
         operator: { include: { route: true } },
+        defaultDriver: true,
         maintenanceRecords: {
           orderBy: { date: 'desc' },
           take: 10,
@@ -82,7 +83,7 @@ export async function PUT(
 
     const { id } = await params
     const body = await request.json()
-    const { busNumber, plateNumber, model, capacity, operatorId, isActive } = body
+    const { busNumber, plateNumber, model, capacity, operatorId, defaultDriverId, isActive } = body
 
     // Check existing bus
     const existing = await prisma.bus.findUnique({
@@ -124,9 +125,10 @@ export async function PUT(
         model: model || null,
         capacity: capacity ? parseInt(capacity) : null,
         operatorId: operatorId || null,
+        defaultDriverId: defaultDriverId || null,
         isActive: isActive !== undefined ? isActive : true,
       },
-      include: { operator: { include: { route: true } } },
+      include: { operator: { include: { route: true } }, defaultDriver: true },
     })
 
     return NextResponse.json({ success: true, data: bus })

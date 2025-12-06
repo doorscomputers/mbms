@@ -17,9 +17,15 @@ interface Operator {
   name: string
 }
 
+interface Driver {
+  id: string
+  name: string
+}
+
 export default function NewBusPage() {
   const router = useRouter()
   const [operators, setOperators] = useState<Operator[]>([])
+  const [drivers, setDrivers] = useState<Driver[]>([])
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     busNumber: "",
@@ -27,14 +33,17 @@ export default function NewBusPage() {
     model: "",
     capacity: "",
     operatorId: "",
+    defaultDriverId: "",
   })
 
   useEffect(() => {
-    fetch("/api/operators")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) setOperators(data.data)
-      })
+    Promise.all([
+      fetch("/api/operators").then((res) => res.json()),
+      fetch("/api/drivers").then((res) => res.json()),
+    ]).then(([opsData, driversData]) => {
+      if (opsData.success) setOperators(opsData.data)
+      if (driversData.success) setDrivers(driversData.data)
+    })
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,6 +64,7 @@ export default function NewBusPage() {
           model: form.model || null,
           capacity: form.capacity ? parseInt(form.capacity) : null,
           operatorId: form.operatorId || null,
+          defaultDriverId: form.defaultDriverId || null,
         }),
       })
       const data = await res.json()
@@ -143,6 +153,24 @@ export default function NewBusPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="defaultDriverId">Default Driver</Label>
+                <Select value={form.defaultDriverId} onValueChange={(v) => setForm({ ...form, defaultDriverId: v === "none" ? "" : v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select default driver" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No default driver</SelectItem>
+                    {drivers.map((driver) => (
+                      <SelectItem key={driver.id} value={driver.id}>{driver.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Auto-fills driver when this bus is selected during collection entry
+                </p>
               </div>
 
               <div className="flex gap-2 pt-4">

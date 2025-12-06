@@ -19,8 +19,18 @@ model Route {
   id                    String    @id @default(cuid())
   name                  String    @unique
   description           String?
+
+  // Share percentages
   operatorSharePercent  Decimal   @default(60) @db.Decimal(5, 2) // Default operator share %
   driverSharePercent    Decimal   @default(40) @db.Decimal(5, 2) // Default driver share %
+
+  // Route-specific settings (override global defaults)
+  weekdayMinimumCollection  Decimal?  @db.Decimal(12, 2) // null = use global
+  sundayMinimumCollection   Decimal?  @db.Decimal(12, 2) // null = use global
+  defaultCoopContribution   Decimal?  @db.Decimal(12, 2) // null = use global
+  driverBasePay             Decimal?  @db.Decimal(12, 2) // null = use global
+  suspensionThreshold       Int?      // null = use global
+
   isActive              Boolean   @default(true)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
@@ -87,17 +97,19 @@ model Operator {
 // ============================================
 
 model Bus {
-  id            String    @id @default(cuid())
-  busNumber     String    @unique
-  plateNumber   String?   @unique
-  model         String?
-  capacity      Int?
-  operatorId    String?
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  busNumber       String    @unique
+  plateNumber     String?   @unique
+  model           String?
+  capacity        Int?
+  operatorId      String?
+  defaultDriverId String?   // Default driver for this bus (auto-fills on collection entry)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   operator          Operator?           @relation(fields: [operatorId], references: [id])
+  defaultDriver     Driver?             @relation("BusDefaultDriver", fields: [defaultDriverId], references: [id])
   dailyRecords      DailyRecord[]
   maintenanceRecords MaintenanceRecord[]
   spareParts        SparePart[]
@@ -124,6 +136,7 @@ model Driver {
 
   route         Route?    @relation(fields: [routeId], references: [id])
   dailyRecords  DailyRecord[]
+  defaultForBuses Bus[]   @relation("BusDefaultDriver") // Buses where this driver is the default
 
   @@map("drivers")
 }

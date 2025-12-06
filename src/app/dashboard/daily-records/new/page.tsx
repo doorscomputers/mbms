@@ -57,6 +57,10 @@ interface Bus {
       driverSharePercent: number | string
     }
   }
+  defaultDriver?: {
+    id: string
+    name: string
+  }
 }
 
 interface Driver {
@@ -204,6 +208,17 @@ export default function NewDailyRecordPage() {
       }
     }
   }, [watchedValues.date, settings.defaultCoop, form])
+
+  // Auto-select default driver when bus is selected
+  useEffect(() => {
+    if (watchedValues.busId && buses.length > 0) {
+      const bus = buses.find((b) => b.id === watchedValues.busId)
+      if (bus?.defaultDriver) {
+        form.setValue("driverId", bus.defaultDriver.id)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedValues.busId, buses])
 
   const onSubmit = async (data: FormData) => {
     setLoading(true)
@@ -361,6 +376,45 @@ export default function NewDailyRecordPage() {
                               </SelectContent>
                             </Select>
                           </FormControl>
+                          {selectedBus && selectedDriver && selectedBus.defaultDriver?.id !== selectedDriver.id && (
+                            <button
+                              type="button"
+                              className="text-xs text-primary hover:underline"
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch(`/api/buses/${selectedBus.id}`, {
+                                    method: "PUT",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      busNumber: selectedBus.busNumber,
+                                      defaultDriverId: selectedDriver.id,
+                                    }),
+                                  })
+                                  const data = await res.json()
+                                  if (data.success) {
+                                    toast.success(`${selectedDriver.name} is now the default driver for Bus #${selectedBus.busNumber}`)
+                                    // Update local state
+                                    setBuses(buses.map(b =>
+                                      b.id === selectedBus.id
+                                        ? { ...b, defaultDriver: { id: selectedDriver.id, name: selectedDriver.name } }
+                                        : b
+                                    ))
+                                  } else {
+                                    toast.error(data.error || "Failed to set default driver")
+                                  }
+                                } catch {
+                                  toast.error("Failed to set default driver")
+                                }
+                              }}
+                            >
+                              Set as default driver for this bus
+                            </button>
+                          )}
+                          {selectedBus?.defaultDriver && selectedDriver?.id === selectedBus.defaultDriver.id && (
+                            <p className="text-xs text-muted-foreground">
+                              Default driver for this bus
+                            </p>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}

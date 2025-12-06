@@ -17,12 +17,18 @@ interface Operator {
   name: string
 }
 
+interface Driver {
+  id: string
+  name: string
+}
+
 export default function EditBusPage() {
   const router = useRouter()
   const params = useParams()
   const id = params.id as string
 
   const [operators, setOperators] = useState<Operator[]>([])
+  const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -31,15 +37,18 @@ export default function EditBusPage() {
     model: "",
     capacity: "",
     operatorId: "",
+    defaultDriverId: "",
     isActive: true,
   })
 
   useEffect(() => {
     Promise.all([
       fetch("/api/operators").then((r) => r.json()),
+      fetch("/api/drivers").then((r) => r.json()),
       fetch(`/api/buses/${id}`).then((r) => r.json()),
-    ]).then(([opsData, busData]) => {
+    ]).then(([opsData, driversData, busData]) => {
       if (opsData.success) setOperators(opsData.data)
+      if (driversData.success) setDrivers(driversData.data)
       if (busData.success) {
         const b = busData.data
         setForm({
@@ -48,6 +57,7 @@ export default function EditBusPage() {
           model: b.model || "",
           capacity: b.capacity?.toString() || "",
           operatorId: b.operatorId || "",
+          defaultDriverId: b.defaultDriverId || "",
           isActive: b.isActive,
         })
       }
@@ -73,6 +83,7 @@ export default function EditBusPage() {
           model: form.model || null,
           capacity: form.capacity ? parseInt(form.capacity) : null,
           operatorId: form.operatorId || null,
+          defaultDriverId: form.defaultDriverId || null,
           isActive: form.isActive,
         }),
       })
@@ -186,6 +197,24 @@ export default function EditBusPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="defaultDriverId">Default Driver</Label>
+                <Select value={form.defaultDriverId} onValueChange={(v) => setForm({ ...form, defaultDriverId: v === "none" ? "" : v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select default driver" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No default driver</SelectItem>
+                    {drivers.map((driver) => (
+                      <SelectItem key={driver.id} value={driver.id}>{driver.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Auto-fills driver when this bus is selected during collection entry
+                </p>
               </div>
 
               <div className="flex gap-2 pt-4">

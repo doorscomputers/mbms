@@ -16,6 +16,7 @@ interface Bus {
   model: string | null
   capacity: number | null
   operator?: { name: string } | null
+  defaultDriver?: { name: string } | null
   isActive: boolean
 }
 
@@ -94,6 +95,10 @@ export default function BusesPage() {
                         <span className="text-muted-foreground">Operator:</span>
                         <span className="ml-1 font-medium">{bus.operator?.name || "-"}</span>
                       </div>
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Default Driver:</span>
+                        <span className="ml-1 font-medium">{bus.defaultDriver?.name || "-"}</span>
+                      </div>
                     </div>
                     <div className="pt-2 border-t">
                       <Link href={`/dashboard/buses/${bus.id}/edit`}>
@@ -122,6 +127,7 @@ export default function BusesPage() {
                       <th className="text-left p-2">Model</th>
                       <th className="text-left p-2">Capacity</th>
                       <th className="text-left p-2">Operator</th>
+                      <th className="text-left p-2">Default Driver</th>
                       <th className="text-left p-2">Status</th>
                       <th className="text-left p-2">Actions</th>
                     </tr>
@@ -134,6 +140,7 @@ export default function BusesPage() {
                         <td className="p-2">{bus.model || "-"}</td>
                         <td className="p-2">{bus.capacity || "-"}</td>
                         <td className="p-2">{bus.operator?.name || "-"}</td>
+                        <td className="p-2">{bus.defaultDriver?.name || "-"}</td>
                         <td className="p-2">
                           <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${bus.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                             {bus.isActive ? "Active" : "Inactive"}
@@ -150,7 +157,7 @@ export default function BusesPage() {
                     ))}
                     {buses.length === 0 && !loading && (
                       <tr>
-                        <td colSpan={7} className="p-4 text-center text-muted-foreground">
+                        <td colSpan={8} className="p-4 text-center text-muted-foreground">
                           No buses found
                         </td>
                       </tr>

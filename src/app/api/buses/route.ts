@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         operator: includeOperator ? { include: { route: true } } : true,
+        defaultDriver: true, // Always include default driver
       },
       orderBy: { busNumber: 'asc' },
     })
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { busNumber, plateNumber, model, capacity, operatorId } = body
+    const { busNumber, plateNumber, model, capacity, operatorId, defaultDriverId } = body
 
     if (!busNumber) {
       return NextResponse.json(
@@ -92,8 +93,9 @@ export async function POST(request: NextRequest) {
         model: model || null,
         capacity: capacity ? parseInt(capacity) : null,
         operatorId: operatorId || null,
+        defaultDriverId: defaultDriverId || null,
       },
-      include: { operator: { include: { route: true } } },
+      include: { operator: { include: { route: true } }, defaultDriver: true },
     })
 
     return NextResponse.json({ success: true, data: bus }, { status: 201 })
