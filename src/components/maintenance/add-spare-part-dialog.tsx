@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
-import { Plus, Loader2, Search } from "lucide-react"
+import { Plus, Search } from "lucide-react"
 import { QuickAddPartType } from "@/components/quick-add-part-type"
 import { formatCurrency } from "@/lib/types"
 
@@ -36,7 +36,6 @@ export interface SparePartItem {
   unitCost: number
   totalCost: number
   existingPartId?: string
-  saveToInventory?: boolean
 }
 
 interface PartType {
@@ -61,8 +60,7 @@ interface AddSparePartDialogProps {
 
 export function AddSparePartDialog({ busId, onPartAdded, trigger }: AddSparePartDialogProps) {
   const [open, setOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState("existing")
-  const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState("new")
 
   // Part types
   const [partTypes, setPartTypes] = useState<PartType[]>([])
@@ -79,7 +77,6 @@ export function AddSparePartDialog({ busId, onPartAdded, trigger }: AddSparePart
   const [brand, setBrand] = useState("")
   const [unitCost, setUnitCost] = useState("")
   const [quantity, setQuantity] = useState("1")
-  const [saveToInventory, setSaveToInventory] = useState(false)
 
   // Fetch part types on mount
   useEffect(() => {
@@ -122,7 +119,6 @@ export function AddSparePartDialog({ busId, onPartAdded, trigger }: AddSparePart
     setBrand("")
     setUnitCost("")
     setQuantity("1")
-    setSaveToInventory(false)
     setSelectedExistingPart("")
     setExistingQuantity("1")
     setSearchQuery("")
@@ -157,7 +153,7 @@ export function AddSparePartDialog({ busId, onPartAdded, trigger }: AddSparePart
     toast.success(`Added ${part.partName}`)
   }
 
-  const handleAddNew = async () => {
+  const handleAddNew = () => {
     if (!partName.trim()) {
       toast.error("Part name is required")
       return
@@ -180,35 +176,6 @@ export function AddSparePartDialog({ busId, onPartAdded, trigger }: AddSparePart
       quantity: qty,
       unitCost: cost,
       totalCost: qty * cost,
-      saveToInventory,
-    }
-
-    // If saving to inventory, also create the spare part record
-    if (saveToInventory && busId) {
-      setLoading(true)
-      try {
-        const res = await fetch("/api/spare-parts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            busId,
-            partName: partName.trim(),
-            partType,
-            brand: brand.trim() || null,
-            quantity: qty,
-            unitCost: cost,
-            purchaseDate: new Date().toISOString().split("T")[0],
-          }),
-        })
-        const result = await res.json()
-        if (result.success) {
-          newPart.existingPartId = result.data.id
-        }
-      } catch (error) {
-        console.error("Error saving to inventory:", error)
-      } finally {
-        setLoading(false)
-      }
     }
 
     onPartAdded(newPart)
@@ -406,16 +373,6 @@ export function AddSparePartDialog({ busId, onPartAdded, trigger }: AddSparePart
             <p className="text-sm font-medium text-right">
               Total: {formatCurrency(newTotal)}
             </p>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={saveToInventory}
-                onChange={(e) => setSaveToInventory(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300"
-              />
-              <span className="text-sm">Also save to inventory for future reference</span>
-            </label>
           </TabsContent>
         </Tabs>
 
@@ -425,10 +382,9 @@ export function AddSparePartDialog({ busId, onPartAdded, trigger }: AddSparePart
           </Button>
           <Button
             type="button"
-            disabled={loading || (activeTab === "existing" ? !selectedExistingPart : !partName.trim() || !partType)}
+            disabled={activeTab === "existing" ? !selectedExistingPart : !partName.trim() || !partType}
             onClick={activeTab === "existing" ? handleAddExisting : handleAddNew}
           >
-            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Add to Repair
           </Button>
         </DialogFooter>

@@ -16,7 +16,6 @@ import DataGrid, {
   Export,
   Summary,
   TotalItem,
-  Format,
   GroupPanel,
   Grouping,
 } from "devextreme-react/data-grid"
@@ -41,7 +40,10 @@ interface MaintenanceRecord {
   date: string
   maintenanceType: string
   description: string | null
-  cost: number
+  totalCost: number | string
+  sparePartsCost: number | string
+  laborCost: number | string
+  miscellaneousCost: number | string
   odometerReading: number | null
   serviceProvider: string | null
   nextServiceDate: string | null
@@ -145,7 +147,10 @@ export default function MaintenancePage() {
   }
 
   // Calculate total maintenance cost
-  const totalCost = records.reduce((acc, record) => acc + record.cost, 0)
+  const totalCost = records.reduce((acc, record) => {
+    const cost = typeof record.totalCost === 'string' ? parseFloat(record.totalCost) : (record.totalCost || 0)
+    return acc + cost
+  }, 0)
 
   return (
     <div className="flex flex-col">
@@ -194,7 +199,7 @@ export default function MaintenancePage() {
                       </span>
                     </div>
                     <span className="text-lg font-bold text-red-600">
-                      {formatCurrency(record.cost)}
+                      {formatCurrency(record.totalCost)}
                     </span>
                   </div>
 
@@ -323,9 +328,13 @@ export default function MaintenancePage() {
             <Lookup dataSource={maintenanceTypes} valueExpr="value" displayExpr="text" />
           </Column>
           <Column dataField="description" caption="Description" />
-          <Column dataField="cost" caption="Cost" dataType="number" width={120}>
-            <Format type="currency" precision={2} />
-          </Column>
+          <Column
+            dataField="totalCost"
+            caption="Cost"
+            dataType="number"
+            width={120}
+            cellRender={(data) => formatCurrency(data.value || 0)}
+          />
           <Column dataField="odometerReading" caption="Odometer" dataType="number" width={100} />
           <Column dataField="serviceProvider" caption="Service Provider" width={150} />
           <Column
@@ -348,10 +357,9 @@ export default function MaintenancePage() {
 
           <Summary>
             <TotalItem
-              column="cost"
+              column="totalCost"
               summaryType="sum"
-              valueFormat={{ type: "currency", precision: 2 }}
-              displayFormat="Total: {0}"
+              customizeText={(data) => `Total: ${formatCurrency(data.value || 0)}`}
             />
             <TotalItem
               column="id"
