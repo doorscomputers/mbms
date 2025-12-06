@@ -117,17 +117,20 @@ export async function PUT(
       }
     }
 
+    // Only update fields that are explicitly provided in the request
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: any = {}
+    if (busNumber !== undefined) updateData.busNumber = busNumber
+    if (plateNumber !== undefined) updateData.plateNumber = plateNumber || null
+    if (model !== undefined) updateData.model = model || null
+    if (capacity !== undefined) updateData.capacity = capacity ? parseInt(capacity) : null
+    if (operatorId !== undefined) updateData.operatorId = operatorId || null
+    if (defaultDriverId !== undefined) updateData.defaultDriverId = defaultDriverId || null
+    if (isActive !== undefined) updateData.isActive = isActive
+
     const bus = await prisma.bus.update({
       where: { id },
-      data: {
-        busNumber,
-        plateNumber: plateNumber || null,
-        model: model || null,
-        capacity: capacity ? parseInt(capacity) : null,
-        operatorId: operatorId || null,
-        defaultDriverId: defaultDriverId || null,
-        isActive: isActive !== undefined ? isActive : true,
-      },
+      data: updateData,
       include: { operator: { include: { route: true } }, defaultDriver: true },
     })
 
