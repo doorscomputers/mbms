@@ -72,7 +72,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, operatorSharePercent, driverSharePercent } = body
+    const {
+      name,
+      description,
+      operatorSharePercent,
+      driverSharePercent,
+      weekdayMinimumCollection,
+      sundayMinimumCollection,
+      defaultCoopContribution,
+      driverBasePay,
+      suspensionThreshold,
+    } = body
 
     if (!name) {
       return NextResponse.json(
@@ -96,6 +106,11 @@ export async function POST(request: NextRequest) {
         description: description || null,
         operatorSharePercent: operatorSharePercent ?? 60,
         driverSharePercent: driverSharePercent ?? 40,
+        weekdayMinimumCollection: weekdayMinimumCollection || null,
+        sundayMinimumCollection: sundayMinimumCollection || null,
+        defaultCoopContribution: defaultCoopContribution || null,
+        driverBasePay: driverBasePay || null,
+        suspensionThreshold: suspensionThreshold || null,
       },
     })
 

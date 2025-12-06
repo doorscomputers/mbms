@@ -15,10 +15,13 @@ export async function GET(request: NextRequest) {
 
     const where: Prisma.MaintenanceRecordWhereInput = {}
 
-    // Filter by operator if not admin
-    if (currentUser?.role !== 'ADMIN' && currentUser?.operatorId) {
+    // Filter by role: SUPER_ADMIN sees all, ROUTE_ADMIN sees their route, OPERATOR sees their buses
+    if (currentUser?.role === 'OPERATOR' && currentUser?.operatorId) {
       where.bus = { operatorId: currentUser.operatorId }
+    } else if (currentUser?.role === 'ROUTE_ADMIN' && currentUser?.routeId) {
+      where.bus = { operator: { routeId: currentUser.routeId } }
     }
+    // SUPER_ADMIN sees all - no filter applied
 
     if (busId) where.busId = busId
     if (maintenanceType) where.maintenanceType = maintenanceType as MaintenanceType

@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
-import { getCurrentUser } from '@/lib/auth-utils'
+import { getCurrentUser, isSuperAdmin } from '@/lib/auth-utils'
 
 export async function GET() {
   try {
-    const currentUser = await getCurrentUser()
-
-    // Only admins can list all users
-    if (currentUser?.role !== 'ADMIN') {
+    // Only SUPER_ADMIN can list all users
+    if (!(await isSuperAdmin())) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        { success: false, error: 'Super Admin access required' },
         { status: 403 }
       )
     }
 
     const users = await prisma.user.findMany({
-      include: { operator: true },
+      include: {
+        operator: true,
+        route: true,
+      },
       orderBy: { createdAt: 'desc' },
     })
 
@@ -35,22 +36,45 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const currentUser = await getCurrentUser()
-
-    // Only admins can create users
-    if (currentUser?.role !== 'ADMIN') {
+    // Only SUPER_ADMIN can create users
+    if (!(await isSuperAdmin())) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        { success: false, error: 'Super Admin access required' },
         { status: 403 }
       )
     }
 
     const body = await request.json()
-    const { username, password, name, role, operatorId } = body
+    const { username, password, name, role, operatorId, routeId } = body
 
     if (!username || !password || !name) {
       return NextResponse.json(
         { success: false, error: 'Username, password, and name are required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate role
+    const validRoles = ['SUPER_ADMIN', 'ROUTE_ADMIN', 'OPERATOR']
+    if (role && !validRoles.includes(role)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid role' },
+        { status: 400 }
+      )
+    }
+
+    // ROUTE_ADMIN must have a routeId
+    if (role === 'ROUTE_ADMIN' && !routeId) {
+      return NextResponse.json(
+        { success: false, error: 'Route Admin must be assigned to a route' },
+        { status: 400 }
+      )
+    }
+
+    // OPERATOR must have an operatorId
+    if (role === 'OPERATOR' && !operatorId) {
+      return NextResponse.json(
+        { success: false, error: 'Operator user must be linked to an operator' },
         { status: 400 }
       )
     }
@@ -73,9 +97,13 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         name,
         role: role || 'OPERATOR',
-        operatorId: operatorId || null,
+        operatorId: role === 'OPERATOR' ? operatorId : null,
+        routeId: role === 'ROUTE_ADMIN' ? routeId : null,
       },
-      include: { operator: true },
+      include: {
+        operator: true,
+        route: true,
+      },
     })
 
     // Remove password from response

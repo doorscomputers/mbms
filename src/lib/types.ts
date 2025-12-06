@@ -11,6 +11,7 @@ export const SETTINGS_KEYS = {
   SUNDAY_MINIMUM_COLLECTION: 'sunday_minimum_collection',
   DEFAULT_COOP_CONTRIBUTION: 'default_coop_contribution',
   DRIVER_BASE_PAY: 'driver_base_pay',
+  SUSPENSION_THRESHOLD: 'suspension_threshold',
   // Deprecated but kept for backwards compatibility
   MINIMUM_COLLECTION: 'minimum_collection',
   DEFAULT_DRIVER_SHARE_PERCENT: 'default_driver_share_percent',
@@ -23,6 +24,7 @@ export const DEFAULT_SETTINGS = {
   [SETTINGS_KEYS.SUNDAY_MINIMUM_COLLECTION]: '5000',
   [SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION]: '1852',
   [SETTINGS_KEYS.DRIVER_BASE_PAY]: '800',
+  [SETTINGS_KEYS.SUSPENSION_THRESHOLD]: '3',
   [SETTINGS_KEYS.MINIMUM_COLLECTION]: '6000',
   [SETTINGS_KEYS.DEFAULT_DRIVER_SHARE_PERCENT]: '40',
   [SETTINGS_KEYS.DEFAULT_ASSIGNEE_SHARE_PERCENT]: '60',

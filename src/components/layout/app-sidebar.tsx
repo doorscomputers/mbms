@@ -107,6 +107,7 @@ const menuItems = [
     subItems: [
       { title: "Summary", href: "/dashboard/reports" },
       { title: "Fleet Analytics", href: "/dashboard/reports/analytics" },
+      { title: "Anomaly Detection", href: "/dashboard/reports/anomaly" },
     ],
   },
   {
@@ -114,6 +115,12 @@ const menuItems = [
     icon: Settings,
     href: "/dashboard/settings",
     superAdminOnly: true,
+  },
+  {
+    title: "Route Settings",
+    icon: Settings,
+    href: "/dashboard/settings/route",
+    routeAdminOnly: true,
   },
 ]
 
@@ -127,6 +134,7 @@ export function AppSidebar() {
   // Filter menu items based on role
   const filteredMenuItems = menuItems.filter(item => {
     if ('superAdminOnly' in item && item.superAdminOnly && !isSuperAdmin) return false
+    if ('routeAdminOnly' in item && item.routeAdminOnly && !isRouteAdmin) return false
     if ('adminOnly' in item && item.adminOnly && !isAdmin) return false
     return true
   })

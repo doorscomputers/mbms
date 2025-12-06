@@ -38,7 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Plus, RefreshCw, Shield, User } from "lucide-react"
+import { Plus, RefreshCw, Shield, User, MapPin } from "lucide-react"
 import { formatDate } from "@/lib/types"
 import { useIsMobile } from "@/hooks/use-mobile"
 
@@ -49,6 +49,8 @@ interface UserData {
   role: string
   operatorId: string | null
   operator: { id: string; name: string } | null
+  routeId: string | null
+  route: { id: string; name: string } | null
   isActive: boolean
   createdAt: string
 }
@@ -58,11 +60,17 @@ interface Operator {
   name: string
 }
 
+interface Route {
+  id: string
+  name: string
+}
+
 export default function UsersPage() {
   const { data: session } = useSession()
   const router = useRouter()
   const [users, setUsers] = useState<UserData[]>([])
   const [operators, setOperators] = useState<Operator[]>([])
+  const [routes, setRoutes] = useState<Route[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -75,26 +83,30 @@ export default function UsersPage() {
     name: "",
     role: "OPERATOR",
     operatorId: "",
+    routeId: "",
   })
 
-  // Check if user is admin
+  // Check if user is SUPER_ADMIN
   useEffect(() => {
-    if (session && session.user?.role !== "ADMIN") {
+    if (session && session.user?.role !== "SUPER_ADMIN") {
       router.push("/dashboard")
     }
   }, [session, router])
 
   const fetchData = async () => {
     try {
-      const [usersRes, operatorsRes] = await Promise.all([
+      const [usersRes, operatorsRes, routesRes] = await Promise.all([
         fetch("/api/users"),
         fetch("/api/operators"),
+        fetch("/api/routes"),
       ])
       const usersData = await usersRes.json()
       const operatorsData = await operatorsRes.json()
+      const routesData = await routesRes.json()
 
       if (usersData.success) setUsers(usersData.data)
       if (operatorsData.success) setOperators(operatorsData.data)
+      if (routesData.success) setRoutes(routesData.data)
     } catch (error) {
       console.error("Error fetching data:", error)
       toast.error("Failed to load data")
@@ -117,7 +129,8 @@ export default function UsersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          operatorId: formData.operatorId || null,
+          operatorId: formData.role === "OPERATOR" ? (formData.operatorId || null) : null,
+          routeId: formData.role === "ROUTE_ADMIN" ? (formData.routeId || null) : null,
         }),
       })
 
@@ -132,6 +145,7 @@ export default function UsersPage() {
           name: "",
           role: "OPERATOR",
           operatorId: "",
+          routeId: "",
         })
         fetchData()
       } else {
@@ -144,7 +158,7 @@ export default function UsersPage() {
     }
   }
 
-  if (session?.user?.role !== "ADMIN") {
+  if (session?.user?.role !== "SUPER_ADMIN") {
     return null
   }
 
@@ -230,18 +244,44 @@ export default function UsersPage() {
                     <Select
                       value={formData.role}
                       onValueChange={(value) =>
-                        setFormData({ ...formData, role: value })
+                        setFormData({ ...formData, role: value, operatorId: "", routeId: "" })
                       }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ADMIN">Admin</SelectItem>
+                        <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                        <SelectItem value="ROUTE_ADMIN">Route Admin</SelectItem>
                         <SelectItem value="OPERATOR">Operator</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                  {formData.role === "ROUTE_ADMIN" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="route">Assign to Route</Label>
+                      <Select
+                        value={formData.routeId}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, routeId: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select route" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {routes.map((route) => (
+                            <SelectItem key={route.id} value={route.id}>
+                              {route.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Route Admin will only manage this route&apos;s data
+                      </p>
+                    </div>
+                  )}
                   {formData.role === "OPERATOR" && (
                     <div className="space-y-2">
                       <Label htmlFor="operator">Link to Operator</Label>
@@ -296,9 +336,11 @@ export default function UsersPage() {
                   <div key={user.id} className="border rounded-lg p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${user.role === "ADMIN" ? "bg-primary/10" : "bg-muted"}`}>
-                          {user.role === "ADMIN" ? (
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${user.role === "SUPER_ADMIN" ? "bg-primary/10" : user.role === "ROUTE_ADMIN" ? "bg-blue-100" : "bg-muted"}`}>
+                          {user.role === "SUPER_ADMIN" ? (
                             <Shield className="h-5 w-5 text-primary" />
+                          ) : user.role === "ROUTE_ADMIN" ? (
+                            <MapPin className="h-5 w-5 text-blue-600" />
                           ) : (
                             <User className="h-5 w-5 text-muted-foreground" />
                           )}
@@ -321,14 +363,20 @@ export default function UsersPage() {
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
                         <span className="text-muted-foreground">Role:</span>
-                        <span className={`ml-1 font-medium ${user.role === "ADMIN" ? "text-primary" : ""}`}>
-                          {user.role}
+                        <span className={`ml-1 font-medium ${user.role === "SUPER_ADMIN" ? "text-primary" : user.role === "ROUTE_ADMIN" ? "text-blue-600" : ""}`}>
+                          {user.role === "SUPER_ADMIN" ? "Super Admin" : user.role === "ROUTE_ADMIN" ? "Route Admin" : "Operator"}
                         </span>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Created:</span>
                         <span className="ml-1 font-medium">{formatDate(user.createdAt)}</span>
                       </div>
+                      {user.route && (
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground">Route:</span>
+                          <span className="ml-1 font-medium">{user.route.name}</span>
+                        </div>
+                      )}
                       {user.operator && (
                         <div className="col-span-2">
                           <span className="text-muted-foreground">Operator:</span>
@@ -352,7 +400,7 @@ export default function UsersPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Username</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Linked Operator</TableHead>
+                    <TableHead>Route / Operator</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
@@ -362,8 +410,10 @@ export default function UsersPage() {
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
-                          {user.role === "ADMIN" ? (
+                          {user.role === "SUPER_ADMIN" ? (
                             <Shield className="h-4 w-4 text-primary" />
+                          ) : user.role === "ROUTE_ADMIN" ? (
+                            <MapPin className="h-4 w-4 text-blue-600" />
                           ) : (
                             <User className="h-4 w-4 text-muted-foreground" />
                           )}
@@ -374,16 +424,18 @@ export default function UsersPage() {
                       <TableCell>
                         <span
                           className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                            user.role === "ADMIN"
+                            user.role === "SUPER_ADMIN"
                               ? "bg-primary/10 text-primary"
+                              : user.role === "ROUTE_ADMIN"
+                              ? "bg-blue-100 text-blue-700"
                               : "bg-muted text-muted-foreground"
                           }`}
                         >
-                          {user.role}
+                          {user.role === "SUPER_ADMIN" ? "Super Admin" : user.role === "ROUTE_ADMIN" ? "Route Admin" : "Operator"}
                         </span>
                       </TableCell>
                       <TableCell>
-                        {user.operator?.name || (
+                        {user.route?.name || user.operator?.name || (
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>

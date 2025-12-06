@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
-import { Save, RefreshCw, MapPin } from "lucide-react"
+import { Save, RefreshCw, MapPin, AlertTriangle } from "lucide-react"
 import { SETTINGS_KEYS } from "@/lib/types"
 import Link from "next/link"
 
@@ -157,6 +157,37 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Anomaly Detection
+              </CardTitle>
+              <CardDescription>
+                Settings for driver performance anomaly detection and suspension tracking
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="suspensionThreshold">Suspension Threshold (Days)</Label>
+                <Input
+                  id="suspensionThreshold"
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={settings[SETTINGS_KEYS.SUSPENSION_THRESHOLD] || "3"}
+                  onChange={(e) =>
+                    updateSetting(SETTINGS_KEYS.SUSPENSION_THRESHOLD, e.target.value)
+                  }
+                  className="max-w-[200px]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Number of &quot;Below Minimum Collection&quot; days before a driver qualifies for suspension review
+                </p>
               </div>
             </CardContent>
           </Card>
