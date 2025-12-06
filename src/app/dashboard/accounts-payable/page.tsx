@@ -4,7 +4,6 @@ import { devExtremeLicenseKey } from "@/lib/devextreme-license"
 void devExtremeLicenseKey // Ensure license module executes
 import { useEffect, useState, useCallback, useRef } from "react"
 import DataGrid, {
-  DataGridTypes,
   Column,
   Editing,
   Paging,
@@ -24,9 +23,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, RefreshCw, AlertTriangle, CheckCircle, Clock, CreditCard, Bus as BusIcon, Calendar } from "lucide-react"
+import { RefreshCw, AlertTriangle, CheckCircle, Clock, CreditCard, Bus as BusIcon, Calendar, Banknote } from "lucide-react"
 import { formatCurrency, formatDate, EXPENSE_CATEGORY_LABELS } from "@/lib/types"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { RecordPaymentDialog } from "@/components/accounts-payable/record-payment-dialog"
 import "devextreme/dist/css/dx.light.css"
 
 interface Bus {
@@ -71,12 +71,15 @@ export default function AccountsPayablePage() {
   const [buses, setBuses] = useState<Bus[]>([])
   const [summary, setSummary] = useState<APSummary | null>(null)
   const [loading, setLoading] = useState(true)
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [selectedPayable, setSelectedPayable] = useState<AccountsPayable | null>(null)
   const isMobile = useIsMobile()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dataGridRef = useRef<any>(null)
 
-  const handleAddClick = () => {
-    dataGridRef.current?.instance?.addRow()
+  const handleRecordPayment = (record: AccountsPayable) => {
+    setSelectedPayable(record)
+    setPaymentDialogOpen(true)
   }
 
   const fetchData = useCallback(async () => {
@@ -259,6 +262,7 @@ export default function AccountsPayablePage() {
             <div className="space-y-3">
               {records.map((record) => {
                 const isOverdue = record.dueDate && new Date(record.dueDate) < new Date() && !record.isPaid
+                const balance = record.amount - record.paidAmount
                 return (
                   <div key={record.id} className="border rounded-lg p-4 space-y-3">
                     <div className="flex items-start justify-between">
@@ -290,6 +294,22 @@ export default function AccountsPayablePage() {
                       </span>
                     </div>
 
+                    {/* Payment Progress */}
+                    {!record.isPaid && (
+                      <div className="text-sm">
+                        <div className="flex justify-between mb-1">
+                          <span className="text-muted-foreground">Paid: {formatCurrency(record.paidAmount)}</span>
+                          <span className="font-medium text-red-600">Balance: {formatCurrency(balance)}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-green-600 h-2 rounded-full"
+                            style={{ width: `${(record.paidAmount / record.amount) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t">
                       {record.dueDate && (
                         <div className="flex items-center gap-1">
@@ -315,6 +335,19 @@ export default function AccountsPayablePage() {
                       <div className="text-sm text-muted-foreground">
                         Invoice: {record.invoiceNumber}
                       </div>
+                    )}
+
+                    {/* Record Payment Button */}
+                    {!record.isPaid && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => handleRecordPayment(record)}
+                      >
+                        <Banknote className="h-4 w-4 mr-2" />
+                        Record Payment
+                      </Button>
                     )}
                   </div>
                 )
@@ -354,7 +387,7 @@ export default function AccountsPayablePage() {
 
           <Editing
             mode="popup"
-            allowAdding={true}
+            allowAdding={false}
             allowUpdating={true}
             allowDeleting={true}
             useIcons={true}
@@ -374,12 +407,6 @@ export default function AccountsPayablePage() {
               <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                 Refresh
-              </Button>
-            </Item>
-            <Item location="after">
-              <Button size="sm" onClick={handleAddClick}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Payable
               </Button>
             </Item>
             <Item name="groupPanel" />
@@ -438,16 +465,55 @@ export default function AccountsPayablePage() {
           />
           <Column
             dataField="paidAmount"
-            caption="Paid Amt"
+            caption="Paid"
             dataType="number"
             width={100}
-            cellRender={(data) => formatCurrency(data.value || 0)}
+            cellRender={(data) => (
+              <span className="text-green-600">{formatCurrency(data.value || 0)}</span>
+            )}
+          />
+          <Column
+            caption="Balance"
+            width={100}
+            allowFiltering={false}
+            allowSorting={false}
+            cellRender={(data) => {
+              const balance = (data.data.amount || 0) - (data.data.paidAmount || 0)
+              return (
+                <span className={balance > 0 ? "text-red-600 font-medium" : "text-green-600"}>
+                  {formatCurrency(balance)}
+                </span>
+              )
+            }}
+          />
+          <Column
+            caption="Action"
+            width={100}
+            allowFiltering={false}
+            allowSorting={false}
+            cellRender={(data) => {
+              if (data.data.isPaid) {
+                return <span className="text-green-600 text-xs">Fully Paid</span>
+              }
+              return (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => handleRecordPayment(data.data)}
+                >
+                  <Banknote className="h-3 w-3 mr-1" />
+                  Pay
+                </Button>
+              )
+            }}
           />
           <Column
             dataField="paidDate"
             caption="Paid Date"
             dataType="date"
             width={100}
+            visible={false}
             cellRender={(data) => (data.value ? formatDate(data.value) : "-")}
           />
           <Column dataField="notes" caption="Notes" visible={false} />
@@ -472,6 +538,14 @@ export default function AccountsPayablePage() {
           </Summary>
         </DataGrid>
         )}
+
+        {/* Payment Dialog */}
+        <RecordPaymentDialog
+          payable={selectedPayable}
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          onPaymentRecorded={fetchData}
+        />
       </div>
     </div>
   )

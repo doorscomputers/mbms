@@ -292,9 +292,9 @@ model AccountsPayable {
   description         String
   amount              Decimal           @db.Decimal(12, 2)
   dueDate             DateTime?         @db.Date
-  paidAmount          Decimal           @default(0) @db.Decimal(12, 2)
+  paidAmount          Decimal           @default(0) @db.Decimal(12, 2) // Computed from payments
   isPaid              Boolean           @default(false)
-  paidDate            DateTime?         @db.Date
+  paidDate            DateTime?         @db.Date // Date when fully paid
   supplier            String?
   invoiceNumber       String?
   notes               String?
@@ -309,8 +309,27 @@ model AccountsPayable {
   bus                 Bus               @relation(fields: [busId], references: [id])
   maintenance         MaintenanceRecord? @relation(fields: [maintenanceId], references: [id])
   sparePart           SparePart?        @relation(fields: [sparePartId], references: [id])
+  payments            Payment[]         // Multiple payments for partial payments
 
   @@map("accounts_payable")
+}
+
+// ============================================
+// PAYMENTS (Track individual payments for payables)
+// ============================================
+
+model Payment {
+  id                  String          @id @default(cuid())
+  accountsPayableId   String
+  amount              Decimal         @db.Decimal(12, 2)
+  datePaid            DateTime        @db.Date
+  remarks             String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  accountsPayable     AccountsPayable @relation(fields: [accountsPayableId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
 }
 
 enum ExpenseCategory {
