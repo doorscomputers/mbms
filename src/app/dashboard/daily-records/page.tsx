@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
 import { Plus, RefreshCw, Calendar, Bus, User, Fuel, Filter } from "lucide-react"
-import { formatCurrency, formatDate } from "@/lib/types"
+import { formatCurrency, formatDate, calculateShares, SETTINGS_KEYS } from "@/lib/types"
 import Link from "next/link"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
@@ -193,28 +193,75 @@ export default function DailyRecordsPage() {
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(true)
   const isMobile = useIsMobile()
+  const [settings, setSettings] = useState({
+    weekdayMinimum: 6000,
+    sundayMinimum: 5000,
+    defaultCoop: 1852,
+    driverBasePay: 800,
+  })
 
   // Date filter states
   const [dateFilter, setDateFilter] = useState<DateFilterOption>("this_month")
   const [customStartDate, setCustomStartDate] = useState<string>("")
   const [customEndDate, setCustomEndDate] = useState<string>("")
 
+  // Helper to recalculate shares when values change
+  const recalculateShares = useCallback((rowData: Partial<DailyRecord>) => {
+    const collection = rowData.totalCollection || 0
+    const diesel = rowData.dieselCost || 0
+    const coop = rowData.coopContribution || 0
+    const other = rowData.otherExpenses || 0
+    const date = rowData.date ? new Date(rowData.date) : new Date()
+    const isSunday = date.getDay() === 0
+    const minimum = isSunday ? settings.sundayMinimum : settings.weekdayMinimum
+
+    // Check if below minimum
+    if (collection < minimum && collection > 0) {
+      // Below minimum: driver gets 0, assignee gets what's left after deductions
+      const assigneeShare = collection - diesel - coop - other
+      return { driverShare: 0, assigneeShare }
+    }
+
+    // Normal calculation using the formula
+    const computation = calculateShares(
+      collection,
+      diesel,
+      coop,
+      other,
+      minimum,
+      settings.driverBasePay,
+      60, // operator share percent
+      40  // driver share percent
+    )
+    return { driverShare: computation.driverShare, assigneeShare: computation.assigneeShare }
+  }, [settings])
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [recordsRes, busesRes, driversRes] = await Promise.all([
+      const [recordsRes, busesRes, driversRes, settingsRes] = await Promise.all([
         fetch("/api/daily-records?limit=500"),
         fetch("/api/buses?includeOperator=true"),
         fetch("/api/drivers"),
+        fetch("/api/settings"),
       ])
 
       const recordsData = await recordsRes.json()
       const busesData = await busesRes.json()
       const driversData = await driversRes.json()
+      const settingsData = await settingsRes.json()
 
       if (recordsData.success) setRecords(recordsData.data)
       if (busesData.success) setBuses(busesData.data)
       if (driversData.success) setDrivers(driversData.data)
+      if (settingsData.success && settingsData.data) {
+        setSettings({
+          weekdayMinimum: parseFloat(settingsData.data[SETTINGS_KEYS.WEEKDAY_MINIMUM_COLLECTION] || "6000"),
+          sundayMinimum: parseFloat(settingsData.data[SETTINGS_KEYS.SUNDAY_MINIMUM_COLLECTION] || "5000"),
+          defaultCoop: parseFloat(settingsData.data[SETTINGS_KEYS.DEFAULT_COOP_CONTRIBUTION] || "1852"),
+          driverBasePay: parseFloat(settingsData.data[SETTINGS_KEYS.DRIVER_BASE_PAY] || "800"),
+        })
+      }
     } catch (error) {
       console.error("Error fetching data:", error)
       toast.error("Failed to load data")
@@ -567,6 +614,12 @@ export default function DailyRecordsPage() {
             width={110}
             sortOrder="desc"
             cellRender={(data) => formatDate(data.value)}
+            setCellValue={(newData, value, currentRowData) => {
+              newData.date = value
+              const shares = recalculateShares({ ...currentRowData, date: value })
+              newData.driverShare = shares.driverShare
+              newData.assigneeShare = shares.assigneeShare
+            }}
           />
           <Column dataField="busId" caption="Bus" width={100}>
             <Lookup
@@ -590,6 +643,12 @@ export default function DailyRecordsPage() {
             cellRender={(data) => (
               <span className="font-medium">{formatCurrency(data.value || 0)}</span>
             )}
+            setCellValue={(newData, value, currentRowData) => {
+              newData.totalCollection = value
+              const shares = recalculateShares({ ...currentRowData, totalCollection: value })
+              newData.driverShare = shares.driverShare
+              newData.assigneeShare = shares.assigneeShare
+            }}
           />
           <Column
             dataField="dieselCost"
@@ -599,6 +658,12 @@ export default function DailyRecordsPage() {
             cellRender={(data) => (
               <span className="text-orange-600">{formatCurrency(data.value || 0)}</span>
             )}
+            setCellValue={(newData, value, currentRowData) => {
+              newData.dieselCost = value
+              const shares = recalculateShares({ ...currentRowData, dieselCost: value })
+              newData.driverShare = shares.driverShare
+              newData.assigneeShare = shares.assigneeShare
+            }}
           />
           <Column dataField="dieselLiters" caption="Liters" dataType="number" width={80} format="#,##0.00" />
           <Column
@@ -607,6 +672,12 @@ export default function DailyRecordsPage() {
             dataType="number"
             width={100}
             cellRender={(data) => formatCurrency(data.value || 0)}
+            setCellValue={(newData, value, currentRowData) => {
+              newData.coopContribution = value
+              const shares = recalculateShares({ ...currentRowData, coopContribution: value })
+              newData.driverShare = shares.driverShare
+              newData.assigneeShare = shares.assigneeShare
+            }}
           />
           <Column
             dataField="assigneeShare"
@@ -644,6 +715,12 @@ export default function DailyRecordsPage() {
             dataType="number"
             visible={false}
             cellRender={(data) => formatCurrency(data.value || 0)}
+            setCellValue={(newData, value, currentRowData) => {
+              newData.otherExpenses = value
+              const shares = recalculateShares({ ...currentRowData, otherExpenses: value })
+              newData.driverShare = shares.driverShare
+              newData.assigneeShare = shares.assigneeShare
+            }}
           />
           <Column dataField="notes" caption="Notes" visible={false} />
 
