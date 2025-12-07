@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,9 @@ interface Driver {
 
 export default function NewBusPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const preselectedOperatorId = searchParams.get("operatorId") || ""
+
   const [operators, setOperators] = useState<Operator[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [saving, setSaving] = useState(false)
@@ -32,7 +35,7 @@ export default function NewBusPage() {
     plateNumber: "",
     model: "",
     capacity: "",
-    operatorId: "",
+    operatorId: preselectedOperatorId,
     defaultDriverId: "",
   })
 

@@ -22,7 +22,9 @@ export async function GET(
       include: {
         route: true,
         buses: {
+          where: { isActive: true },
           include: {
+            defaultDriver: true,
             maintenanceRecords: {
               orderBy: { date: 'desc' },
               take: 5,
@@ -32,6 +34,7 @@ export async function GET(
               take: 5,
             },
           },
+          orderBy: { busNumber: 'asc' },
         },
       },
     })

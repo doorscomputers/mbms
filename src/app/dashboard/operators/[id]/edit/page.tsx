@@ -7,15 +7,24 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { ArrowLeft, Save, Trash2 } from "lucide-react"
+import { ArrowLeft, Save, Trash2, Bus, Plus, Pencil } from "lucide-react"
 
 interface Route {
   id: string
   name: string
+}
+
+interface BusInfo {
+  id: string
+  busNumber: string
+  plateNumber: string | null
+  model: string | null
+  defaultDriver?: { id: string; name: string } | null
+  isActive: boolean
 }
 
 export default function EditOperatorPage() {
@@ -27,6 +36,7 @@ export default function EditOperatorPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [routes, setRoutes] = useState<Route[]>([])
+  const [buses, setBuses] = useState<BusInfo[]>([])
   const [form, setForm] = useState({
     name: "",
     contactNumber: "",
@@ -52,7 +62,8 @@ export default function EditOperatorPage() {
   }, [isSuperAdmin])
 
   useEffect(() => {
-    fetch(`/api/operators/${id}`)
+    // Fetch operator info
+    fetch(`/api/operators/${id}?includeBuses=true`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success) {
@@ -66,6 +77,10 @@ export default function EditOperatorPage() {
             routeId: op.routeId || "",
             routeName: op.route?.name || "",
           })
+          // Set buses if included
+          if (op.buses) {
+            setBuses(op.buses)
+          }
         }
         setLoading(false)
       })
@@ -147,7 +162,8 @@ export default function EditOperatorPage() {
           </Link>
         </div>
 
-        <Card className="max-w-lg">
+        <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
           <CardHeader>
             <CardTitle>Operator Information</CardTitle>
           </CardHeader>
@@ -237,6 +253,79 @@ export default function EditOperatorPage() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Assigned Buses Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Bus className="h-5 w-5" />
+                Assigned Buses
+              </CardTitle>
+              <CardDescription>
+                Buses owned by this operator
+              </CardDescription>
+            </div>
+            <Link href={`/dashboard/buses/new?operatorId=${id}`}>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Bus
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {buses.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Bus className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No buses assigned to this operator</p>
+                <p className="text-sm mt-1">Click &quot;Add Bus&quot; to assign one</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {buses.map((bus) => (
+                  <div
+                    key={bus.id}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <Bus className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="font-semibold">{bus.busNumber}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {bus.plateNumber || "No plate"} {bus.model ? `• ${bus.model}` : ""}
+                        </div>
+                        {bus.defaultDriver && (
+                          <div className="text-xs text-muted-foreground">
+                            Driver: {bus.defaultDriver.name}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                          bus.isActive
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {bus.isActive ? "Active" : "Inactive"}
+                      </span>
+                      <Link href={`/dashboard/buses/${bus.id}/edit`}>
+                        <Button variant="ghost" size="sm">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        </div>
       </div>
     </div>
   )

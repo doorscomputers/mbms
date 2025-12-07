@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { getCurrentUser } from '@/lib/auth-utils'
 
 export async function GET(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser()
+
     const { searchParams } = new URL(request.url)
     const busId = searchParams.get('busId')
-    const operatorId = searchParams.get('operatorId')
+    let operatorId = searchParams.get('operatorId')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+
+    // Filter by operator for OPERATOR role
+    if (currentUser?.role === 'OPERATOR' && currentUser.operatorId) {
+      operatorId = currentUser.operatorId
+    }
 
     // Build where clause
     const dailyWhere: {

@@ -1,95 +1,61 @@
-# Task: Associate Bus with Default Driver
+# Task: Fix Operator Login and Data Filtering
 
 ## Goal
-When selecting a Bus during Collection entry, automatically fill in the assigned driver (but allow changing if needed). This saves time since most buses have regular drivers.
+1. Investigate and fix why OPERATOR role users couldn't log in
+2. Improve the Operators page so admin can see and manage buses assigned to each operator
 
-## Plan
+## Changes Made
 
-### Database Changes
-- [x] Add `defaultDriverId` optional field to Bus model in Prisma schema
-- [x] Run `npx prisma db push` to update database
+### 1. Reports Summary API - Added OPERATOR Filtering
+**File:** `src/app/api/reports/summary/route.ts`
+- Added `getCurrentUser()` import
+- Added logic to filter by `operatorId` when user has OPERATOR role
+- This ensures the dashboard shows only the operator's own data
 
-### API Changes
-- [x] Update `/api/buses` GET to include default driver in response
-- [x] Update `/api/buses/[id]` PUT to handle defaultDriverId updates
-- [x] Update `/api/buses` POST to handle defaultDriverId on creation
+### 2. Operator Edit Page - Added Buses List
+**File:** `src/app/dashboard/operators/[id]/edit/page.tsx`
+- Added new "Assigned Buses" card next to the operator form
+- Shows all buses assigned to this operator with:
+  - Bus number and plate number
+  - Model info
+  - Default driver (if assigned)
+  - Active/Inactive status
+- Added "Add Bus" button that links to `/dashboard/buses/new?operatorId={id}`
+- Added edit button for each bus
 
-### UI Changes
-- [x] Update Buses management page to show default driver column
-- [x] Update Bus edit page to allow assigning a default driver
-- [x] Update Bus new page to allow assigning a default driver
-- [x] Update Daily Records form to auto-select driver when bus is selected
-- [x] Add "Set as default driver" quick action on Daily Records form
+### 3. Operator Detail API - Include Default Driver
+**File:** `src/app/api/operators/[id]/route.ts`
+- Updated GET to include `defaultDriver` in buses
+- Added `where: { isActive: true }` to only show active buses
+- Added `orderBy: { busNumber: 'asc' }` for consistent ordering
 
-## Review
+### 4. Bus New Page - Pre-select Operator from URL
+**File:** `src/app/dashboard/buses/new/page.tsx`
+- Added `useSearchParams` hook
+- Reads `operatorId` from URL query params
+- Pre-selects the operator when coming from Operator edit page
 
-### Changes Made
+## How It Works Now
 
-1. **Schema Change** (`prisma/schema.prisma`)
-   - Added `defaultDriverId` optional field to Bus model
-   - Added `defaultDriver` relation to Driver model
-   - Added reverse `defaultForBuses` relation on Driver model
+**Admin Workflow:**
+1. Go to **Operators** page
+2. Click **Edit** on an operator
+3. See the operator's info on the left, and their **Assigned Buses** on the right
+4. Click **Add Bus** to create a new bus for this operator (operator is pre-selected)
+5. Click the edit icon on any bus to modify it
 
-2. **API Updates**
-   - `/api/buses/route.ts`:
-     - GET: Added `defaultDriver: true` to include in response
-     - POST: Added `defaultDriverId` to create data
-   - `/api/buses/[id]/route.ts`:
-     - GET: Added `defaultDriver: true` to include
-     - PUT: Added `defaultDriverId` to update data
+**Operator Workflow:**
+1. Login as operator user (e.g., warren)
+2. Dashboard shows only their own data (collections, expenses, etc.)
+3. Buses page shows only buses assigned to them
+4. Daily Records shows only their bus records
 
-3. **Buses Management Page** (`src/app/dashboard/buses/page.tsx`)
-   - Added "Default Driver" column to desktop table
-   - Added "Default Driver" field to mobile card view
-
-4. **Bus Edit Page** (`src/app/dashboard/buses/[id]/edit/page.tsx`)
-   - Added Driver interface and drivers state
-   - Fetches drivers list on load
-   - Added "Default Driver" dropdown with "No default driver" option
-   - Shows helper text explaining the feature
-
-5. **Bus New Page** (`src/app/dashboard/buses/new/page.tsx`)
-   - Added Driver interface and drivers state
-   - Fetches drivers list on load
-   - Added "Default Driver" dropdown with "No default driver" option
-   - Shows helper text explaining the feature
-
-6. **Daily Records Form** (`src/app/dashboard/daily-records/new/page.tsx`)
-   - Updated Bus interface to include `defaultDriver`
-   - Added useEffect to auto-select driver when bus changes
-   - Added "Set as default driver for this bus" link that appears when:
-     - A bus is selected
-     - A driver is selected
-     - The driver is NOT already the default for that bus
-   - Shows "Default driver for this bus" text when selected driver matches default
-
-### Files Modified
-- `prisma/schema.prisma`
-- `src/app/api/buses/route.ts`
-- `src/app/api/buses/[id]/route.ts`
-- `src/app/dashboard/buses/page.tsx`
-- `src/app/dashboard/buses/[id]/edit/page.tsx`
+## Files Modified
+- `src/app/api/reports/summary/route.ts`
+- `src/app/api/operators/[id]/route.ts`
+- `src/app/dashboard/operators/[id]/edit/page.tsx`
 - `src/app/dashboard/buses/new/page.tsx`
-- `src/app/dashboard/daily-records/new/page.tsx`
-
-### Build Status
-Build successful with no errors.
-
-### How It Works
-
-**Option 1: Set default driver from Bus Management**
-1. Go to **Buses** page and click **Edit** on a bus
-2. Select a **Default Driver** from the dropdown
-3. Save
-
-**Option 2: Set default driver directly from Collection Entry (NEW)**
-1. Go to **Daily Records > New**
-2. Select a **Bus**
-3. Select a **Driver**
-4. Click **"Set as default driver for this bus"** link that appears below the driver dropdown
-5. The driver is now saved as the default for that bus
-
-**Using the feature:**
-- When creating a new Daily Record, selecting a bus will automatically fill in its default driver
-- You can still change the driver if needed (e.g., substitute driver)
-- If no default driver is set, the driver field stays empty
+- `src/lib/auth.ts` (cleaned up debug logging)
+- `src/middleware.ts` (cleaned up debug logging)
+- `src/app/login/page.tsx` (cleaned up debug logging)
+- `src/app/api/buses/route.ts` (cleaned up debug logging)
