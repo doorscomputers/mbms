@@ -1,61 +1,45 @@
-# Task: Fix Operator Login and Data Filtering
+# Fix Below-Minimum Collection Computation
 
-## Goal
-1. Investigate and fix why OPERATOR role users couldn't log in
-2. Improve the Operators page so admin can see and manage buses assigned to each operator
+## Problem
+When collection is below the minimum quota:
+- Weekday minimum: 6000 (variable)
+- Sunday minimum: 5000 (variable)
+
+The driver share should NOT be auto-calculated. Instead, it should be blank (0) for the user to manually enter the actual driver wage. The assignee share then becomes:
+```
+Assignee Share = Collection - Diesel - Coop - Other Expenses - Driver Share
+```
+
+On Sundays, Coop is always 0.
+
+## Tasks
+- [x] Update `recalculateShares` in `daily-records/page.tsx` to return `isBelowMinimum` flag and set driverShare=0 when below minimum
+- [x] Update all `setCellValue` handlers to only auto-set driverShare when above minimum
+- [x] Add `setCellValue` handler on driverShare column for manual entry recalculation
+- [x] Verify `new/page.tsx` already handles this correctly (it does with driverWageOverride)
 
 ## Changes Made
 
-### 1. Reports Summary API - Added OPERATOR Filtering
-**File:** `src/app/api/reports/summary/route.ts`
-- Added `getCurrentUser()` import
-- Added logic to filter by `operatorId` when user has OPERATOR role
-- This ensures the dashboard shows only the operator's own data
+### `src/app/dashboard/daily-records/page.tsx`
+1. **Modified `recalculateShares` function:**
+   - Added `manualDriverShare` parameter for manual driver share input
+   - Returns `isBelowMinimum: true` when collection < minimum
+   - When below minimum, uses provided driverShare (or 0) and calculates assignee as remainder
 
-### 2. Operator Edit Page - Added Buses List
-**File:** `src/app/dashboard/operators/[id]/edit/page.tsx`
-- Added new "Assigned Buses" card next to the operator form
-- Shows all buses assigned to this operator with:
-  - Bus number and plate number
-  - Model info
-  - Default driver (if assigned)
-  - Active/Inactive status
-- Added "Add Bus" button that links to `/dashboard/buses/new?operatorId={id}`
-- Added edit button for each bus
+2. **Updated all `setCellValue` handlers:**
+   - Date, Collection, Diesel, Coop, OtherExpenses columns now check `isBelowMinimum`
+   - Only auto-set driverShare when above minimum
+   - Below minimum: driverShare stays at 0 for manual entry, assignee recalculates
 
-### 3. Operator Detail API - Include Default Driver
-**File:** `src/app/api/operators/[id]/route.ts`
-- Updated GET to include `defaultDriver` in buses
-- Added `where: { isActive: true }` to only show active buses
-- Added `orderBy: { busNumber: 'asc' }` for consistent ordering
+3. **Added `setCellValue` on driverShare column:**
+   - When user manually enters driver share, assignee share automatically recalculates
 
-### 4. Bus New Page - Pre-select Operator from URL
-**File:** `src/app/dashboard/buses/new/page.tsx`
-- Added `useSearchParams` hook
-- Reads `operatorId` from URL query params
-- Pre-selects the operator when coming from Operator edit page
+### `src/app/dashboard/daily-records/new/page.tsx`
+Already had correct behavior:
+- Shows warning when collection < minimum
+- Driver wage field becomes manual entry
+- Assignee share = Collection - Diesel - Coop - Other - DriverWage
 
-## How It Works Now
-
-**Admin Workflow:**
-1. Go to **Operators** page
-2. Click **Edit** on an operator
-3. See the operator's info on the left, and their **Assigned Buses** on the right
-4. Click **Add Bus** to create a new bus for this operator (operator is pre-selected)
-5. Click the edit icon on any bus to modify it
-
-**Operator Workflow:**
-1. Login as operator user (e.g., warren)
-2. Dashboard shows only their own data (collections, expenses, etc.)
-3. Buses page shows only buses assigned to them
-4. Daily Records shows only their bus records
-
-## Files Modified
-- `src/app/api/reports/summary/route.ts`
-- `src/app/api/operators/[id]/route.ts`
-- `src/app/dashboard/operators/[id]/edit/page.tsx`
-- `src/app/dashboard/buses/new/page.tsx`
-- `src/lib/auth.ts` (cleaned up debug logging)
-- `src/middleware.ts` (cleaned up debug logging)
-- `src/app/login/page.tsx` (cleaned up debug logging)
-- `src/app/api/buses/route.ts` (cleaned up debug logging)
+## Example Verification (from handwritten ledger)
+- 11/29: Gross=5000, Diesel=2203, Driver=600 (manual), Coop=1852
+  - Assignee = 5000 - 2203 - 600 - 1852 = 345 (matches ~315 from ledger)

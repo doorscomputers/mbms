@@ -206,7 +206,7 @@ export default function DailyRecordsPage() {
   const [customEndDate, setCustomEndDate] = useState<string>("")
 
   // Helper to recalculate shares when values change
-  const recalculateShares = useCallback((rowData: Partial<DailyRecord>) => {
+  const recalculateShares = useCallback((rowData: Partial<DailyRecord>, manualDriverShare?: number) => {
     const collection = rowData.totalCollection || 0
     const diesel = rowData.dieselCost || 0
     const coop = rowData.coopContribution || 0
@@ -217,9 +217,11 @@ export default function DailyRecordsPage() {
 
     // Check if below minimum
     if (collection < minimum && collection > 0) {
-      // Below minimum: driver gets 0, assignee gets what's left after deductions
-      const assigneeShare = collection - diesel - coop - other
-      return { driverShare: 0, assigneeShare }
+      // Below minimum: driver share is blank (0) for manual entry
+      // If manualDriverShare provided, use it; otherwise return 0
+      const driverShare = manualDriverShare ?? rowData.driverShare ?? 0
+      const assigneeShare = collection - diesel - coop - other - driverShare
+      return { driverShare, assigneeShare, isBelowMinimum: true }
     }
 
     // Normal calculation using the formula
@@ -233,7 +235,7 @@ export default function DailyRecordsPage() {
       60, // operator share percent
       40  // driver share percent
     )
-    return { driverShare: computation.driverShare, assigneeShare: computation.assigneeShare }
+    return { driverShare: computation.driverShare, assigneeShare: computation.assigneeShare, isBelowMinimum: false }
   }, [settings])
 
   const fetchData = useCallback(async () => {
@@ -617,7 +619,13 @@ export default function DailyRecordsPage() {
             setCellValue={(newData, value, currentRowData) => {
               newData.date = value
               const shares = recalculateShares({ ...currentRowData, date: value })
-              newData.driverShare = shares.driverShare
+              // Only auto-set driver share if above minimum
+              if (!shares.isBelowMinimum) {
+                newData.driverShare = shares.driverShare
+              } else {
+                // Below minimum: reset driver to 0 for manual entry
+                newData.driverShare = 0
+              }
               newData.assigneeShare = shares.assigneeShare
             }}
           />
@@ -646,7 +654,13 @@ export default function DailyRecordsPage() {
             setCellValue={(newData, value, currentRowData) => {
               newData.totalCollection = value
               const shares = recalculateShares({ ...currentRowData, totalCollection: value })
-              newData.driverShare = shares.driverShare
+              // Only auto-set driver share if above minimum
+              if (!shares.isBelowMinimum) {
+                newData.driverShare = shares.driverShare
+              } else {
+                // Below minimum: reset driver to 0 for manual entry
+                newData.driverShare = 0
+              }
               newData.assigneeShare = shares.assigneeShare
             }}
           />
@@ -661,7 +675,11 @@ export default function DailyRecordsPage() {
             setCellValue={(newData, value, currentRowData) => {
               newData.dieselCost = value
               const shares = recalculateShares({ ...currentRowData, dieselCost: value })
-              newData.driverShare = shares.driverShare
+              // Only auto-set driver share if above minimum
+              if (!shares.isBelowMinimum) {
+                newData.driverShare = shares.driverShare
+              }
+              // Assignee share always recalculates
               newData.assigneeShare = shares.assigneeShare
             }}
           />
@@ -675,7 +693,11 @@ export default function DailyRecordsPage() {
             setCellValue={(newData, value, currentRowData) => {
               newData.coopContribution = value
               const shares = recalculateShares({ ...currentRowData, coopContribution: value })
-              newData.driverShare = shares.driverShare
+              // Only auto-set driver share if above minimum
+              if (!shares.isBelowMinimum) {
+                newData.driverShare = shares.driverShare
+              }
+              // Assignee share always recalculates
               newData.assigneeShare = shares.assigneeShare
             }}
           />
@@ -700,6 +722,12 @@ export default function DailyRecordsPage() {
                 {formatCurrency(data.value || 0)}
               </span>
             )}
+            setCellValue={(newData, value, currentRowData) => {
+              newData.driverShare = value
+              // Recalculate assignee share when driver share is manually entered
+              const shares = recalculateShares({ ...currentRowData, driverShare: value }, value)
+              newData.assigneeShare = shares.assigneeShare
+            }}
           />
           <Column dataField="tripCount" caption="Trips" dataType="number" width={70} />
           <Column
@@ -718,7 +746,11 @@ export default function DailyRecordsPage() {
             setCellValue={(newData, value, currentRowData) => {
               newData.otherExpenses = value
               const shares = recalculateShares({ ...currentRowData, otherExpenses: value })
-              newData.driverShare = shares.driverShare
+              // Only auto-set driver share if above minimum
+              if (!shares.isBelowMinimum) {
+                newData.driverShare = shares.driverShare
+              }
+              // Assignee share always recalculates
               newData.assigneeShare = shares.assigneeShare
             }}
           />
