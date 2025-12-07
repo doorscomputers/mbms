@@ -613,7 +613,6 @@ export default function DailyRecordsPage() {
             caption="Assignee Share"
             dataType="number"
             width={120}
-            allowEditing={false}
             cellRender={(data) => (
               <span className="text-blue-600 font-medium">
                 {formatCurrency(data.value || 0)}
@@ -625,7 +624,6 @@ export default function DailyRecordsPage() {
             caption="Driver Share"
             dataType="number"
             width={110}
-            allowEditing={false}
             cellRender={(data) => (
               <span className="text-green-600 font-medium">
                 {formatCurrency(data.value || 0)}
