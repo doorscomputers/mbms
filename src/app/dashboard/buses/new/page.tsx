@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { ArrowLeft, Save } from "lucide-react"
+import { ArrowLeft, Save, Loader2 } from "lucide-react"
 
 interface Operator {
   id: string
@@ -22,7 +22,7 @@ interface Driver {
   name: string
 }
 
-export default function NewBusPage() {
+function NewBusForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedOperatorId = searchParams.get("operatorId") || ""
@@ -190,5 +190,26 @@ export default function NewBusPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <div className="flex flex-col">
+      <Header title="Add New Bus" />
+      <div className="flex-1 p-4 md:p-6">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function NewBusPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <NewBusForm />
+    </Suspense>
   )
 }
