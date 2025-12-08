@@ -5,7 +5,6 @@ void devExtremeLicenseKey // Ensure license module executes
 import { useEffect, useState, useCallback } from "react"
 import DataGrid, {
   Column,
-  Editing,
   Paging,
   FilterRow,
   SearchPanel,
@@ -20,8 +19,8 @@ import DataGrid, {
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, RefreshCw, Calendar, Bus, User, Fuel, Filter } from "lucide-react"
-import { formatCurrency, formatDate, calculateShares, SETTINGS_KEYS } from "@/lib/types"
+import { Plus, RefreshCw, Calendar, Bus, User, Fuel, Filter, Pencil, Trash2 } from "lucide-react"
+import { formatCurrency, formatDate, SETTINGS_KEYS } from "@/lib/types"
 import Link from "next/link"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
@@ -33,7 +32,8 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { postJson, putJson, deleteRequest, ApiError } from "@/lib/fetch-utils"
+import { deleteRequest, ApiError } from "@/lib/fetch-utils"
+import { EditRecordDialog } from "@/components/daily-records/edit-record-dialog"
 import "devextreme/dist/css/dx.light.css"
 
 interface BusData {
@@ -206,38 +206,30 @@ export default function DailyRecordsPage() {
   const [customStartDate, setCustomStartDate] = useState<string>("")
   const [customEndDate, setCustomEndDate] = useState<string>("")
 
-  // Helper to recalculate shares when values change
-  const recalculateShares = useCallback((rowData: Partial<DailyRecord>, manualDriverShare?: number) => {
-    const collection = Number(rowData.totalCollection) || 0
-    const diesel = Number(rowData.dieselCost) || 0
-    const coop = Number(rowData.coopContribution) || 0
-    const other = Number(rowData.otherExpenses) || 0
-    const date = rowData.date ? new Date(rowData.date) : new Date()
-    const isSunday = date.getDay() === 0
-    const minimum = isSunday ? settings.sundayMinimum : settings.weekdayMinimum
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingRecord, setEditingRecord] = useState<DailyRecord | null>(null)
 
-    // Check if below minimum
-    if (collection < minimum && collection > 0) {
-      // Below minimum: driver share is for manual entry
-      // Use manualDriverShare if provided (including 0), otherwise use existing or default to 0
-      const driverShare = manualDriverShare !== undefined ? manualDriverShare : (Number(rowData.driverShare) || 0)
-      const assigneeShare = collection - diesel - coop - other - driverShare
-      return { driverShare, assigneeShare, isBelowMinimum: true }
+  // Open edit dialog
+  const handleEditRecord = (record: DailyRecord) => {
+    setEditingRecord(record)
+    setEditDialogOpen(true)
+  }
+
+  // Delete record
+  const handleDeleteRecord = async (record: DailyRecord) => {
+    if (!confirm(`Delete record for ${record.bus?.busNumber} on ${formatDate(record.date)}?`)) {
+      return
     }
-
-    // Normal calculation using the formula
-    const computation = calculateShares(
-      collection,
-      diesel,
-      coop,
-      other,
-      minimum,
-      settings.driverBasePay,
-      60, // operator share percent
-      40  // driver share percent
-    )
-    return { driverShare: computation.driverShare, assigneeShare: computation.assigneeShare, isBelowMinimum: false }
-  }, [settings])
+    try {
+      await deleteRequest(`/api/daily-records/${record.id}`)
+      toast.success("Record deleted successfully")
+      fetchData()
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Failed to delete record"
+      toast.error(message)
+    }
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -331,75 +323,6 @@ export default function DailyRecordsPage() {
       setFilteredRecords(filtered)
     }
   }, [records, dateFilter, customStartDate, customEndDate])
-
-  // Recalculate shares when edit popup opens
-  const onEditingStart = useCallback((e: { data: DailyRecord }) => {
-    const shares = recalculateShares(e.data)
-    // Update the data that will be shown in the popup
-    if (shares.isBelowMinimum) {
-      // Below minimum: use existing driver share for manual entry, recalc assignee
-      const driverShare = Number(e.data.driverShare) || 0
-      const collection = Number(e.data.totalCollection) || 0
-      const diesel = Number(e.data.dieselCost) || 0
-      const coop = Number(e.data.coopContribution) || 0
-      const other = Number(e.data.otherExpenses) || 0
-      e.data.assigneeShare = collection - diesel - coop - other - driverShare
-    } else {
-      // Above minimum: recalculate both
-      e.data.driverShare = shares.driverShare
-      e.data.assigneeShare = shares.assigneeShare
-    }
-  }, [recalculateShares])
-
-  // Set defaults for new rows
-  const onInitNewRow = useCallback((e: { data: Partial<DailyRecord> }) => {
-    e.data.date = new Date().toISOString().split('T')[0]
-    e.data.coopContribution = settings.defaultCoop
-    e.data.totalCollection = 0
-    e.data.dieselCost = 0
-    e.data.dieselLiters = 0
-    e.data.otherExpenses = 0
-    e.data.driverShare = 0
-    e.data.assigneeShare = 0
-    e.data.tripCount = 0
-  }, [settings.defaultCoop])
-
-  const onRowInserted = async (e: { data: Partial<DailyRecord> }) => {
-    try {
-      await postJson("/api/daily-records", e.data)
-      toast.success("Record added successfully")
-      fetchData()
-    } catch (error) {
-      const message = error instanceof ApiError ? error.message : "Failed to add record"
-      toast.error(message)
-    }
-  }
-
-  const onRowUpdated = async (e: { key: string; data: Partial<DailyRecord> }) => {
-    try {
-      // Merge with existing data
-      const existingRecord = records.find((r) => r.id === e.key)
-      const mergedData = { ...existingRecord, ...e.data }
-
-      await putJson(`/api/daily-records/${e.key}`, mergedData)
-      toast.success("Record updated successfully")
-      fetchData()
-    } catch (error) {
-      const message = error instanceof ApiError ? error.message : "Failed to update record"
-      toast.error(message)
-    }
-  }
-
-  const onRowRemoved = async (e: { key: string }) => {
-    try {
-      await deleteRequest(`/api/daily-records/${e.key}`)
-      toast.success("Record deleted successfully")
-      fetchData()
-    } catch (error) {
-      const message = error instanceof ApiError ? error.message : "Failed to delete record"
-      toast.error(message)
-    }
-  }
 
   // Calculate totals for filtered records
   const totals = filteredRecords.reduce(
@@ -600,11 +523,6 @@ export default function DailyRecordsPage() {
           allowColumnReordering={true}
           allowColumnResizing={true}
           columnAutoWidth={true}
-          onRowInserted={onRowInserted}
-          onRowUpdated={onRowUpdated}
-          onRowRemoved={onRowRemoved}
-          onEditingStart={onEditingStart}
-          onInitNewRow={onInitNewRow}
           className="shadow-sm"
           wordWrapEnabled={true}
         >
@@ -614,18 +532,32 @@ export default function DailyRecordsPage() {
           <Paging defaultPageSize={20} />
           <Export enabled={true} allowExportSelectedData={true} />
 
-          <Editing
-            mode="popup"
-            allowAdding={true}
-            allowUpdating={true}
-            allowDeleting={true}
-            useIcons={true}
-            popup={{
-              title: "Daily Record",
-              showTitle: true,
-              width: 700,
-              height: 600,
-            }}
+          {/* Actions Column */}
+          <Column
+            caption="Actions"
+            width={80}
+            allowFiltering={false}
+            allowSorting={false}
+            cellRender={(cellData) => (
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => handleEditRecord(cellData.data)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-red-600 hover:text-red-700"
+                  onClick={() => handleDeleteRecord(cellData.data)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           />
 
           <Toolbar>
@@ -657,19 +589,6 @@ export default function DailyRecordsPage() {
             width={110}
             sortOrder="desc"
             cellRender={(data) => formatDate(data.value)}
-            setCellValue={(newData, value, currentRowData) => {
-              newData.date = value
-              const mergedData = { ...currentRowData, ...newData, date: value }
-              const shares = recalculateShares(mergedData)
-              // Only auto-set driver share if above minimum
-              if (!shares.isBelowMinimum) {
-                newData.driverShare = shares.driverShare
-              } else {
-                // Below minimum: reset driver to 0 for manual entry
-                newData.driverShare = 0
-              }
-              newData.assigneeShare = shares.assigneeShare
-            }}
           />
           <Column dataField="busId" caption="Bus" width={100}>
             <Lookup
@@ -693,19 +612,6 @@ export default function DailyRecordsPage() {
             cellRender={(data) => (
               <span className="font-medium">{formatCurrency(data.value || 0)}</span>
             )}
-            setCellValue={(newData, value, currentRowData) => {
-              newData.totalCollection = value
-              const mergedData = { ...currentRowData, ...newData, totalCollection: value }
-              const shares = recalculateShares(mergedData)
-              // Only auto-set driver share if above minimum
-              if (!shares.isBelowMinimum) {
-                newData.driverShare = shares.driverShare
-              } else {
-                // Below minimum: reset driver to 0 for manual entry
-                newData.driverShare = 0
-              }
-              newData.assigneeShare = shares.assigneeShare
-            }}
           />
           <Column
             dataField="dieselCost"
@@ -715,17 +621,6 @@ export default function DailyRecordsPage() {
             cellRender={(data) => (
               <span className="text-orange-600">{formatCurrency(data.value || 0)}</span>
             )}
-            setCellValue={(newData, value, currentRowData) => {
-              newData.dieselCost = value
-              const mergedData = { ...currentRowData, ...newData, dieselCost: value }
-              const shares = recalculateShares(mergedData)
-              // Only auto-set driver share if above minimum
-              if (!shares.isBelowMinimum) {
-                newData.driverShare = shares.driverShare
-              }
-              // Assignee share always recalculates
-              newData.assigneeShare = shares.assigneeShare
-            }}
           />
           <Column dataField="dieselLiters" caption="Liters" dataType="number" width={80} format="#,##0.00" />
           <Column
@@ -734,17 +629,6 @@ export default function DailyRecordsPage() {
             dataType="number"
             width={100}
             cellRender={(data) => formatCurrency(data.value || 0)}
-            setCellValue={(newData, value, currentRowData) => {
-              newData.coopContribution = value
-              const mergedData = { ...currentRowData, ...newData, coopContribution: value }
-              const shares = recalculateShares(mergedData)
-              // Only auto-set driver share if above minimum
-              if (!shares.isBelowMinimum) {
-                newData.driverShare = shares.driverShare
-              }
-              // Assignee share always recalculates
-              newData.assigneeShare = shares.assigneeShare
-            }}
           />
           <Column
             dataField="assigneeShare"
@@ -767,42 +651,8 @@ export default function DailyRecordsPage() {
                 {formatCurrency(data.value || 0)}
               </span>
             )}
-            setCellValue={(newData, value, currentRowData) => {
-              newData.driverShare = value
-              // Recalculate assignee share when driver share is manually entered
-              // Merge newData with currentRowData to get all current values from the editing form
-              const mergedData = { ...currentRowData, ...newData, driverShare: value }
-              const shares = recalculateShares(mergedData, value)
-              newData.assigneeShare = shares.assigneeShare
-            }}
           />
           <Column dataField="tripCount" caption="Trips" dataType="number" width={70} />
-          <Column
-            dataField="minimumCollection"
-            caption="Min Collection"
-            dataType="number"
-            visible={false}
-            cellRender={(data) => formatCurrency(data.value || 0)}
-          />
-          <Column
-            dataField="otherExpenses"
-            caption="Other Exp."
-            dataType="number"
-            visible={false}
-            cellRender={(data) => formatCurrency(data.value || 0)}
-            setCellValue={(newData, value, currentRowData) => {
-              newData.otherExpenses = value
-              const mergedData = { ...currentRowData, ...newData, otherExpenses: value }
-              const shares = recalculateShares(mergedData)
-              // Only auto-set driver share if above minimum
-              if (!shares.isBelowMinimum) {
-                newData.driverShare = shares.driverShare
-              }
-              // Assignee share always recalculates
-              newData.assigneeShare = shares.assigneeShare
-            }}
-          />
-          <Column dataField="notes" caption="Notes" visible={false} />
 
           <Summary>
             <TotalItem
@@ -828,6 +678,17 @@ export default function DailyRecordsPage() {
           </Summary>
         </DataGrid>
         )}
+
+        {/* Edit Record Dialog */}
+        <EditRecordDialog
+          record={editingRecord}
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          buses={buses}
+          drivers={drivers}
+          settings={settings}
+          onSaved={fetchData}
+        />
       </div>
     </div>
   )
