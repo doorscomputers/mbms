@@ -110,9 +110,12 @@ export default function NewDailyRecordPage() {
   const selectedBus = buses.find((b) => b.id === watchedValues.busId)
   const selectedDriver = drivers.find((d) => d.id === watchedValues.driverId)
 
-  // Check if selected date is Sunday
-  const selectedDate = watchedValues.date ? new Date(watchedValues.date) : new Date()
-  const isSunday = selectedDate.getDay() === 0
+  // Check if selected date is Sunday (parse properly to avoid timezone issues)
+  const isSunday = (() => {
+    if (!watchedValues.date) return new Date().getDay() === 0
+    const [year, month, day] = watchedValues.date.split("-").map(Number)
+    return new Date(year, month - 1, day).getDay() === 0
+  })()
 
   // Get minimum collection based on day
   const minimumCollection = isSunday ? settings.sundayMinimum : settings.weekdayMinimum
@@ -204,7 +207,9 @@ export default function NewDailyRecordPage() {
   // Watch for date changes and update Coop based on Sunday
   useEffect(() => {
     if (watchedValues.date) {
-      const date = new Date(watchedValues.date)
+      // Parse date parts to avoid timezone issues
+      const [year, month, day] = watchedValues.date.split("-").map(Number)
+      const date = new Date(year, month - 1, day)
       if (date.getDay() === 0) {
         // Sunday - set coop to 0
         form.setValue("coopContribution", "0")
