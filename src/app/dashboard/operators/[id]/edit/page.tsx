@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { ArrowLeft, Save, Trash2, Bus, Plus, Pencil } from "lucide-react"
+import { ArrowLeft, Save, Trash2, Bus, Plus, Pencil, Loader2 } from "lucide-react"
 
 interface Route {
   id: string
@@ -37,6 +37,9 @@ export default function EditOperatorPage() {
   const [saving, setSaving] = useState(false)
   const [routes, setRoutes] = useState<Route[]>([])
   const [buses, setBuses] = useState<BusInfo[]>([])
+  const [unassignedBuses, setUnassignedBuses] = useState<BusInfo[]>([])
+  const [selectedBusId, setSelectedBusId] = useState("")
+  const [assigning, setAssigning] = useState(false)
   const [form, setForm] = useState({
     name: "",
     contactNumber: "",
@@ -61,6 +64,20 @@ export default function EditOperatorPage() {
     }
   }, [isSuperAdmin])
 
+  const fetchUnassignedBuses = async () => {
+    try {
+      const res = await fetch("/api/buses?activeOnly=true")
+      const data = await res.json()
+      if (data.success) {
+        // Filter buses where operatorId is null
+        const unassigned = data.data.filter((bus: { operatorId: string | null }) => !bus.operatorId)
+        setUnassignedBuses(unassigned)
+      }
+    } catch (err) {
+      console.error("Failed to fetch unassigned buses:", err)
+    }
+  }
+
   useEffect(() => {
     // Fetch operator info
     fetch(`/api/operators/${id}?includeBuses=true`)
@@ -84,6 +101,9 @@ export default function EditOperatorPage() {
         }
         setLoading(false)
       })
+
+    // Fetch unassigned buses for assignment dropdown
+    fetchUnassignedBuses()
   }, [id])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -137,6 +157,39 @@ export default function EditOperatorPage() {
       toast.error("Failed to delete")
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleAssignBus = async () => {
+    if (!selectedBusId) {
+      toast.error("Please select a bus to assign")
+      return
+    }
+    setAssigning(true)
+    try {
+      const res = await fetch(`/api/buses/${selectedBusId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operatorId: id }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success("Bus assigned successfully")
+        // Add the bus to the assigned list
+        const assignedBus = unassignedBuses.find((b) => b.id === selectedBusId)
+        if (assignedBus) {
+          setBuses((prev) => [...prev, assignedBus])
+        }
+        // Remove from unassigned list
+        setUnassignedBuses((prev) => prev.filter((b) => b.id !== selectedBusId))
+        setSelectedBusId("")
+      } else {
+        toast.error(data.error || "Failed to assign bus")
+      }
+    } catch {
+      toast.error("Failed to assign bus")
+    } finally {
+      setAssigning(false)
     }
   }
 
@@ -256,22 +309,53 @@ export default function EditOperatorPage() {
 
         {/* Assigned Buses Card */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Bus className="h-5 w-5" />
-                Assigned Buses
-              </CardTitle>
-              <CardDescription>
-                Buses owned by this operator
-              </CardDescription>
+          <CardHeader>
+            <div className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Bus className="h-5 w-5" />
+                  Assigned Buses
+                </CardTitle>
+                <CardDescription>
+                  Buses owned by this operator
+                </CardDescription>
+              </div>
+              <Link href={`/dashboard/buses/new?operatorId=${id}`}>
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add New Bus
+                </Button>
+              </Link>
             </div>
-            <Link href={`/dashboard/buses/new?operatorId=${id}`}>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Bus
-              </Button>
-            </Link>
+
+            {/* Assign existing bus dropdown */}
+            {unassignedBuses.length > 0 && (
+              <div className="flex gap-2 mt-4">
+                <Select value={selectedBusId} onValueChange={setSelectedBusId}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select an unassigned bus..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {unassignedBuses.map((bus) => (
+                      <SelectItem key={bus.id} value={bus.id}>
+                        {bus.busNumber} {bus.plateNumber ? `(${bus.plateNumber})` : ""} {bus.model ? `- ${bus.model}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={handleAssignBus}
+                  disabled={!selectedBusId || assigning}
+                  size="default"
+                >
+                  {assigning ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Assign"
+                  )}
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {buses.length === 0 ? (

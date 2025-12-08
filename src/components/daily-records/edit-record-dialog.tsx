@@ -92,11 +92,15 @@ export function EditRecordDialog({
 
   // Computed state
   const [isBelowMinimum, setIsBelowMinimum] = useState(false)
+  // Track the loaded date to distinguish user changes from initial load
+  const [loadedDate, setLoadedDate] = useState("")
 
   // Load record data when dialog opens
   useEffect(() => {
     if (record && open) {
-      setDate(record.date.split("T")[0])
+      const recordDate = record.date.split("T")[0]
+      setLoadedDate(recordDate)
+      setDate(recordDate)
       setBusId(record.busId)
       setDriverId(record.driverId)
       setTotalCollection(record.totalCollection)
@@ -110,6 +114,23 @@ export function EditRecordDialog({
       setNotes(record.notes || "")
     }
   }, [record, open])
+
+  // Handle date change from user input - auto-set coop based on day
+  const handleDateChange = (newDate: string) => {
+    setDate(newDate)
+    // Only auto-set coop if date changed from the original loaded date
+    if (newDate && newDate !== loadedDate) {
+      // Parse date parts to avoid timezone issues
+      const [year, month, day] = newDate.split("-").map(Number)
+      const dateObj = new Date(year, month - 1, day)
+      const isSunday = dateObj.getDay() === 0
+      if (isSunday) {
+        setCoopContribution(0)
+      } else {
+        setCoopContribution(settings.defaultCoop)
+      }
+    }
+  }
 
   // Recalculate shares whenever inputs change
   const recalculate = useCallback(() => {
@@ -207,7 +228,7 @@ export function EditRecordDialog({
                 id="date"
                 type="date"
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={(e) => handleDateChange(e.target.value)}
               />
               {isSunday && (
                 <p className="text-xs text-orange-600">Sunday - Min: {formatCurrency(minimum)}</p>
