@@ -668,6 +668,11 @@ export default function DailyRecordsPage() {
               customizeText={(data) => `Total: ${formatCurrency(Number(data.value) || 0)}`}
             />
             <TotalItem
+              column="coopContribution"
+              summaryType="sum"
+              customizeText={(data) => `Total: ${formatCurrency(Number(data.value) || 0)}`}
+            />
+            <TotalItem
               column="assigneeShare"
               summaryType="sum"
               customizeText={(data) => `Total: ${formatCurrency(Number(data.value) || 0)}`}
