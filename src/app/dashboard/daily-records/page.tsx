@@ -19,7 +19,7 @@ import DataGrid, {
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, RefreshCw, Calendar, Bus, User, Fuel, Filter, Pencil, Trash2 } from "lucide-react"
+import { Plus, RefreshCw, Calendar, Bus, User, Fuel, Filter, Pencil, Trash2, Loader2 } from "lucide-react"
 import { formatCurrency, formatDate, SETTINGS_KEYS } from "@/lib/types"
 import Link from "next/link"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -412,7 +412,17 @@ export default function DailyRecordsPage() {
           </div>
         </div>
 
-        {isMobile ? (
+        {/* Loading Indicator */}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Loading records...</p>
+            </div>
+          </div>
+        )}
+
+        {!loading && isMobile ? (
           // Mobile Card View
           <div className="space-y-4">
             {/* Mobile Header */}
@@ -513,7 +523,7 @@ export default function DailyRecordsPage() {
               )}
             </div>
           </div>
-        ) : (
+        ) : !loading ? (
           // Desktop DataGrid View
           <DataGrid
           dataSource={filteredRecords}
@@ -689,7 +699,7 @@ export default function DailyRecordsPage() {
             />
           </Summary>
         </DataGrid>
-        )}
+        ) : null}
 
         {/* Edit Record Dialog */}
         <EditRecordDialog
