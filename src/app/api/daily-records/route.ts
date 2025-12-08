@@ -197,12 +197,12 @@ export async function POST(request: NextRequest) {
         assigneeShare: computed.assigneeShare,
         otherExpenses: other,
         notes: notes || null,
-        // Set unused fields to 0
+        // Set unused fields to 0 or from body
         passengerCount: 0,
         tripCount: 0,
         dieselLiters: 0,
-        odometerStart: 0,
-        odometerEnd: 0,
+        odometerStart: parseFloat(body.odometerStart || '0'),
+        odometerEnd: parseFloat(body.odometerEnd || '0'),
         minimumCollection: 0,
         excessCollection: 0,
       },

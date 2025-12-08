@@ -39,6 +39,8 @@ const formSchema = z.object({
   coopContribution: z.string().optional(),
   otherExpenses: z.string().optional(),
   driverWageOverride: z.string().optional(),
+  odometerStart: z.string().optional(),
+  odometerEnd: z.string().optional(),
   notes: z.string().optional(),
 })
 
@@ -98,6 +100,8 @@ export default function NewDailyRecordPage() {
       coopContribution: "",
       otherExpenses: "",
       driverWageOverride: "",
+      odometerStart: "",
+      odometerEnd: "",
       notes: "",
     },
   })
@@ -267,6 +271,8 @@ export default function NewDailyRecordPage() {
           coopContribution: parseFloat(data.coopContribution || "0"),
           otherExpenses: parseFloat(data.otherExpenses || "0"),
           notes: data.notes || "",
+          odometerStart: parseFloat(data.odometerStart || "0"),
+          odometerEnd: parseFloat(data.odometerEnd || "0"),
           // Computed/Override values
           minimumCollection: minimumCollection,
           excessCollection: finalExcessCollection,
@@ -573,6 +579,42 @@ export default function NewDailyRecordPage() {
                         </div>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Odometer Readings */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Odometer Readings (Optional)</CardTitle>
+                    <CardDescription>Track mileage for this trip</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 sm:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="odometerStart"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Previous ODO</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" placeholder="0" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="odometerEnd"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Current ODO</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" placeholder="0" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </CardContent>
                 </Card>
 
