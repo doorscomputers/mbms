@@ -61,6 +61,7 @@ model User {
   operator      Operator? @relation(fields: [operatorId], references: [id])
   route         Route?    @relation(fields: [routeId], references: [id])
 
+  @@index([routeId])
   @@map("users")
 }
 
@@ -89,6 +90,8 @@ model Operator {
   buses         Bus[]
   user          User?     // Link to user account
 
+  @@index([routeId])
+  @@index([isActive])
   @@map("operators")
 }
 
@@ -115,6 +118,8 @@ model Bus {
   spareParts        SparePart[]
   accountsPayable   AccountsPayable[]
 
+  @@index([operatorId])
+  @@index([isActive])
   @@map("buses")
 }
 
@@ -138,6 +143,8 @@ model Driver {
   dailyRecords  DailyRecord[]
   defaultForBuses Bus[]   @relation("BusDefaultDriver") // Buses where this driver is the default
 
+  @@index([routeId])
+  @@index([isActive])
   @@map("drivers")
 }
 
@@ -185,6 +192,9 @@ model DailyRecord {
   driver            Driver    @relation(fields: [driverId], references: [id])
 
   @@unique([date, busId]) // One record per bus per day
+  @@index([busId])
+  @@index([driverId])
+  @@index([date])
   @@map("daily_records")
 }
 
@@ -220,6 +230,8 @@ model MaintenanceRecord {
   bus               Bus                 @relation(fields: [busId], references: [id])
   accountsPayable   AccountsPayable[]
 
+  @@index([busId])
+  @@index([date])
   @@map("maintenance_records")
 }
 
@@ -278,6 +290,7 @@ model SparePart {
   bus               Bus       @relation(fields: [busId], references: [id])
   accountsPayable   AccountsPayable[]
 
+  @@index([busId])
   @@map("spare_parts")
 }
 
@@ -311,6 +324,8 @@ model AccountsPayable {
   sparePart           SparePart?        @relation(fields: [sparePartId], references: [id])
   payments            Payment[]         // Multiple payments for partial payments
 
+  @@index([busId])
+  @@index([isPaid])
   @@map("accounts_payable")
 }
 
