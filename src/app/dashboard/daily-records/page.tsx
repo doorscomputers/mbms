@@ -304,6 +304,38 @@ export default function DailyRecordsPage() {
     }
   }, [records, dateFilter, customStartDate, customEndDate])
 
+  // Recalculate shares when edit popup opens
+  const onEditingStart = useCallback((e: { data: DailyRecord }) => {
+    const shares = recalculateShares(e.data)
+    // Update the data that will be shown in the popup
+    if (shares.isBelowMinimum) {
+      // Below minimum: use existing driver share for manual entry, recalc assignee
+      const driverShare = Number(e.data.driverShare) || 0
+      const collection = Number(e.data.totalCollection) || 0
+      const diesel = Number(e.data.dieselCost) || 0
+      const coop = Number(e.data.coopContribution) || 0
+      const other = Number(e.data.otherExpenses) || 0
+      e.data.assigneeShare = collection - diesel - coop - other - driverShare
+    } else {
+      // Above minimum: recalculate both
+      e.data.driverShare = shares.driverShare
+      e.data.assigneeShare = shares.assigneeShare
+    }
+  }, [recalculateShares])
+
+  // Set defaults for new rows
+  const onInitNewRow = useCallback((e: { data: Partial<DailyRecord> }) => {
+    e.data.date = new Date().toISOString().split('T')[0]
+    e.data.coopContribution = settings.defaultCoop
+    e.data.totalCollection = 0
+    e.data.dieselCost = 0
+    e.data.dieselLiters = 0
+    e.data.otherExpenses = 0
+    e.data.driverShare = 0
+    e.data.assigneeShare = 0
+    e.data.tripCount = 0
+  }, [settings.defaultCoop])
+
   const onRowInserted = async (e: { data: Partial<DailyRecord> }) => {
     try {
       await postJson("/api/daily-records", e.data)
@@ -543,6 +575,8 @@ export default function DailyRecordsPage() {
           onRowInserted={onRowInserted}
           onRowUpdated={onRowUpdated}
           onRowRemoved={onRowRemoved}
+          onEditingStart={onEditingStart}
+          onInitNewRow={onInitNewRow}
           className="shadow-sm"
           wordWrapEnabled={true}
         >
