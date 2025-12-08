@@ -1,52 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma, { withRetry } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-utils'
-import { calculateShares } from '@/lib/types'
-
-// Get settings for calculation
-async function getSettings() {
-  const settings = await withRetry(() => prisma.setting.findMany())
-  const settingsMap: Record<string, string> = {}
-  settings.forEach((s) => { settingsMap[s.key] = s.value })
-  return {
-    weekdayMinimum: parseFloat(settingsMap['weekday_minimum_collection'] || '6000'),
-    sundayMinimum: parseFloat(settingsMap['sunday_minimum_collection'] || '5000'),
-    driverBasePay: parseFloat(settingsMap['driver_base_pay'] || '800'),
-  }
-}
-
-// Calculate shares based on business rules
-function computeShares(
-  totalCollection: number,
-  dieselCost: number,
-  coopContribution: number,
-  otherExpenses: number,
-  driverShareInput: number,
-  date: Date,
-  settings: { weekdayMinimum: number; sundayMinimum: number; driverBasePay: number }
-) {
-  const isSunday = date.getDay() === 0
-  const minimum = isSunday ? settings.sundayMinimum : settings.weekdayMinimum
-
-  // Below minimum: use manual driver share, calculate assignee as remainder
-  if (totalCollection < minimum && totalCollection > 0) {
-    const assigneeShare = totalCollection - dieselCost - coopContribution - otherExpenses - driverShareInput
-    return { driverShare: driverShareInput, assigneeShare }
-  }
-
-  // Above minimum: use standard formula
-  const result = calculateShares(
-    totalCollection,
-    dieselCost,
-    coopContribution,
-    otherExpenses,
-    minimum,
-    settings.driverBasePay,
-    60,
-    40
-  )
-  return { driverShare: result.driverShare, assigneeShare: result.assigneeShare }
-}
 
 export async function GET(
   request: NextRequest,
@@ -161,48 +115,25 @@ export async function PUT(
       )
     }
 
-    // Verify bus and driver exist
-    const bus = await withRetry(() => prisma.bus.findUnique({
-      where: { id: busId },
-      include: { operator: true },
-    }))
-    const driver = await withRetry(() => prisma.driver.findUnique({ where: { id: driverId } }))
-
-    if (!bus || !driver) {
-      return NextResponse.json(
-        { success: false, error: 'Bus or driver not found' },
-        { status: 404 }
-      )
-    }
-
-    // Get settings and calculate shares server-side
-    const settings = await getSettings()
-    const recordDate = date ? new Date(date) : existing.date
-    const collection = parseFloat(totalCollection || '0')
-    const diesel = parseFloat(dieselCost || '0')
-    const coop = parseFloat(coopContribution || '0')
-    const other = parseFloat(otherExpenses || '0')
-    const driverShareInput = parseFloat(driverShare || '0')
-
-    // Server-side calculation ensures correct values
-    const computed = computeShares(collection, diesel, coop, other, driverShareInput, recordDate, settings)
-
+    // Save record directly - client already calculated the correct values
     const record = await withRetry(() => prisma.dailyRecord.update({
       where: { id },
       data: {
         date: date ? new Date(date) : undefined,
         busId,
         driverId,
-        totalCollection: collection,
-        dieselCost: diesel,
-        driverShare: computed.driverShare,
-        coopContribution: coop,
-        otherExpenses: other,
-        assigneeShare: computed.assigneeShare,
+        totalCollection: parseFloat(totalCollection || '0'),
+        dieselCost: parseFloat(dieselCost || '0'),
+        dieselLiters: parseFloat(body.dieselLiters || '0'),
+        driverShare: parseFloat(driverShare || '0'),
+        coopContribution: parseFloat(coopContribution || '0'),
+        otherExpenses: parseFloat(otherExpenses || '0'),
+        assigneeShare: parseFloat(assigneeShare || '0'),
+        tripCount: parseInt(body.tripCount || '0'),
         notes: notes || null,
       },
       include: {
-        bus: { include: { operator: { include: { route: true } } } },
+        bus: { include: { operator: true } },
         driver: true,
       },
     }))
