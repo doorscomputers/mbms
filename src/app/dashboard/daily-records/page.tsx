@@ -668,6 +668,11 @@ export default function DailyRecordsPage() {
               customizeText={(data) => `Total: ${formatCurrency(Number(data.value) || 0)}`}
             />
             <TotalItem
+              column="dieselLiters"
+              summaryType="sum"
+              customizeText={(data) => `Total: ${(Number(data.value) || 0).toFixed(2)} L`}
+            />
+            <TotalItem
               column="coopContribution"
               summaryType="sum"
               customizeText={(data) => `Total: ${formatCurrency(Number(data.value) || 0)}`}

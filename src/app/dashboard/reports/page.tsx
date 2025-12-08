@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import { Header } from "@/components/layout/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -75,10 +76,16 @@ interface Summary {
 }
 
 export default function ReportsPage() {
+  const { data: session } = useSession()
   const [buses, setBuses] = useState<Bus[]>([])
   const [operators, setOperators] = useState<Operator[]>([])
   const [summary, setSummary] = useState<Summary | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Get user role and operator ID from session
+  const userRole = (session?.user as { role?: string })?.role
+  const userOperatorId = (session?.user as { operatorId?: string })?.operatorId
+  const isOperator = userRole === "OPERATOR"
 
   // Filters
   const [busId, setBusId] = useState<string>("all")
@@ -90,6 +97,13 @@ export default function ReportsPage() {
   const [endDate, setEndDate] = useState<string>(() => {
     return new Date().toISOString().split("T")[0]
   })
+
+  // For OPERATOR role, lock the operator filter to their own operator
+  useEffect(() => {
+    if (isOperator && userOperatorId) {
+      setOperatorId(userOperatorId)
+    }
+  }, [isOperator, userOperatorId])
 
   useEffect(() => {
     async function fetchOptions() {
@@ -217,22 +231,25 @@ export default function ReportsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Operator</Label>
-                    <Select value={operatorId} onValueChange={setOperatorId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All operators" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Operators</SelectItem>
-                        {operators.map((op) => (
-                          <SelectItem key={op.id} value={op.id}>
-                            {op.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Hide operator filter for OPERATOR users - they can only see their own data */}
+                  {!isOperator && (
+                    <div className="space-y-2">
+                      <Label>Operator</Label>
+                      <Select value={operatorId} onValueChange={setOperatorId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="All operators" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Operators</SelectItem>
+                          {operators.map((op) => (
+                            <SelectItem key={op.id} value={op.id}>
+                              {op.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="flex items-end">
                     <Button onClick={fetchSummary} disabled={loading} className="w-full">
                       <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
