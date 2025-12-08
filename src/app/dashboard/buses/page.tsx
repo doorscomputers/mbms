@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { Plus, Pencil, RefreshCw, Bus as BusIcon } from "lucide-react"
+import { Plus, Pencil, RefreshCw, Bus as BusIcon, Loader2 } from "lucide-react"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 interface Bus {
@@ -63,7 +63,14 @@ export default function BusesPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {isMobile ? (
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Loading buses...</p>
+                </div>
+              </div>
+            ) : isMobile ? (
               // Mobile Card View
               <div className="space-y-3">
                 {buses.map((bus) => (

@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Header } from "@/components/layout/header"
 import { toast } from "sonner"
-import { RefreshCw, AlertTriangle, CheckCircle, Clock, CreditCard, Bus as BusIcon, Calendar, Banknote } from "lucide-react"
+import { RefreshCw, AlertTriangle, CheckCircle, Clock, CreditCard, Bus as BusIcon, Calendar, Banknote, Loader2 } from "lucide-react"
 import { formatCurrency, formatDate, EXPENSE_CATEGORY_LABELS } from "@/lib/types"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { RecordPaymentDialog } from "@/components/accounts-payable/record-payment-dialog"
@@ -172,6 +172,15 @@ export default function AccountsPayablePage() {
     <div className="flex flex-col">
       <Header title="Accounts Payable" />
       <div className="flex-1 p-4 md:p-6 space-y-6">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Loading accounts payable...</p>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Summary Cards */}
         {summary && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -537,6 +546,8 @@ export default function AccountsPayablePage() {
             />
           </Summary>
         </DataGrid>
+        )}
+          </>
         )}
 
         {/* Payment Dialog */}

@@ -27,6 +27,7 @@ import {
   RefreshCw,
   FileText,
   Calendar,
+  Loader2,
 } from "lucide-react"
 
 interface Bus {
@@ -278,7 +279,16 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
 
-            {summary && (
+            {loading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Loading report data...</p>
+                </div>
+              </div>
+            )}
+
+            {!loading && summary && (
               <>
                 {/* Key Metrics */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
