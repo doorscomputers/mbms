@@ -63,6 +63,8 @@ interface DailyRecord {
   driverShare: number
   excessCollection: number
   otherExpenses: number
+  odometerStart: number
+  odometerEnd: number
   notes: string | null
   bus: BusData
   driver: Driver
