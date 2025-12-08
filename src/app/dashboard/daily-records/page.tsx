@@ -249,14 +249,42 @@ export default function DailyRecordsPage() {
         fetch("/api/settings"),
       ])
 
+      // Check HTTP status before parsing
+      if (!recordsRes.ok) {
+        const errorText = await recordsRes.text()
+        console.error("Records API error:", recordsRes.status, errorText)
+        toast.error(`Failed to load records: ${recordsRes.status}`)
+        return
+      }
+
       const recordsData = await recordsRes.json()
       const busesData = await busesRes.json()
       const driversData = await driversRes.json()
       const settingsData = await settingsRes.json()
 
-      if (recordsData.success) setRecords(recordsData.data)
-      if (busesData.success) setBuses(busesData.data)
-      if (driversData.success) setDrivers(driversData.data)
+      // Handle records response
+      if (recordsData.success) {
+        setRecords(recordsData.data || [])
+      } else {
+        console.error("Records API returned error:", recordsData.error)
+        toast.error(recordsData.error || "Failed to load records")
+      }
+
+      // Handle buses response
+      if (busesData.success) {
+        setBuses(busesData.data || [])
+      } else {
+        console.error("Buses API error:", busesData.error)
+      }
+
+      // Handle drivers response
+      if (driversData.success) {
+        setDrivers(driversData.data || [])
+      } else {
+        console.error("Drivers API error:", driversData.error)
+      }
+
+      // Handle settings response
       if (settingsData.success && settingsData.data) {
         setSettings({
           weekdayMinimum: parseFloat(settingsData.data[SETTINGS_KEYS.WEEKDAY_MINIMUM_COLLECTION] || "6000"),
@@ -267,7 +295,7 @@ export default function DailyRecordsPage() {
       }
     } catch (error) {
       console.error("Error fetching data:", error)
-      toast.error("Failed to load data")
+      toast.error("Failed to load data. Please refresh the page.")
     } finally {
       setLoading(false)
     }

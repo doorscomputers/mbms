@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import prisma, { withRetry } from '@/lib/prisma'
 import { getCurrentUser, canManageRoute } from '@/lib/auth-utils'
 
 export async function GET(request: NextRequest) {
@@ -34,14 +34,14 @@ export async function GET(request: NextRequest) {
       where.operator = { routeId: currentUser.routeId }
     }
 
-    const buses = await prisma.bus.findMany({
+    const buses = await withRetry(() => prisma.bus.findMany({
       where,
       include: {
         operator: includeOperator ? { include: { route: true } } : true,
         defaultDriver: true, // Always include default driver
       },
       orderBy: { busNumber: 'asc' },
-    })
+    }))
 
     return NextResponse.json({ success: true, data: buses })
   } catch (error) {

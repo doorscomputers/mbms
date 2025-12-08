@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import prisma, { withRetry } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth-utils'
 
 export async function GET(request: NextRequest) {
@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
       if (endDate) where.date.lte = new Date(endDate)
     }
 
-    const records = await prisma.dailyRecord.findMany({
+    // Use withRetry to handle transient database connection failures
+    const records = await withRetry(() => prisma.dailyRecord.findMany({
       where,
       include: {
         bus: { include: { operator: { include: { route: true } } } },
@@ -49,13 +50,14 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { date: 'desc' },
       take: limit,
-    })
+    }))
 
     return NextResponse.json({ success: true, data: records })
   } catch (error) {
     console.error('Error fetching daily records:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch daily records'
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch daily records' },
+      { success: false, error: errorMessage },
       { status: 500 }
     )
   }
@@ -93,12 +95,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify bus and driver exist
-    const bus = await prisma.bus.findUnique({
-      where: { id: busId },
-      include: { operator: true },
-    })
-    const driver = await prisma.driver.findUnique({ where: { id: driverId } })
+    // Verify bus and driver exist (with retry for transient failures)
+    const [bus, driver] = await withRetry(() => Promise.all([
+      prisma.bus.findUnique({
+        where: { id: busId },
+        include: { operator: true },
+      }),
+      prisma.driver.findUnique({ where: { id: driverId } })
+    ]))
 
     if (!bus || !driver) {
       return NextResponse.json(
@@ -124,7 +128,7 @@ export async function POST(request: NextRequest) {
     }
 
     // User enters all values directly - no auto-calculation
-    const record = await prisma.dailyRecord.create({
+    const record = await withRetry(() => prisma.dailyRecord.create({
       data: {
         date: new Date(date),
         busId,
@@ -149,7 +153,7 @@ export async function POST(request: NextRequest) {
         bus: { include: { operator: { include: { route: true } } } },
         driver: true,
       },
-    })
+    }))
 
     return NextResponse.json({ success: true, data: record }, { status: 201 })
   } catch (error: unknown) {

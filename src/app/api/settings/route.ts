@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import prisma, { withRetry } from '@/lib/prisma'
 import { DEFAULT_SETTINGS, SETTINGS_KEYS } from '@/lib/types'
 
 export async function GET() {
   try {
-    const settings = await prisma.setting.findMany()
+    const settings = await withRetry(() => prisma.setting.findMany())
 
     // Merge with defaults for any missing settings
     const settingsMap: Record<string, string> = { ...DEFAULT_SETTINGS }
