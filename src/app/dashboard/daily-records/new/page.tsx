@@ -231,6 +231,24 @@ export default function NewDailyRecordPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedValues.busId, buses])
 
+  // Auto-fill Previous ODO from last record's Current ODO when bus is selected
+  useEffect(() => {
+    async function fetchLastOdometer() {
+      if (!watchedValues.busId) return
+      try {
+        const res = await fetch(`/api/buses/${watchedValues.busId}/last-odometer`)
+        const data = await res.json()
+        if (data.success && data.data?.odometerEnd) {
+          form.setValue("odometerStart", data.data.odometerEnd.toString())
+        }
+      } catch (error) {
+        console.error("Error fetching last odometer:", error)
+      }
+    }
+    fetchLastOdometer()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedValues.busId])
+
   const onSubmit = async (data: FormData) => {
     setLoading(true)
     try {
