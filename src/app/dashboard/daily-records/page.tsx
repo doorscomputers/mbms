@@ -659,7 +659,8 @@ export default function DailyRecordsPage() {
             cellRender={(data) => formatDate(data.value)}
             setCellValue={(newData, value, currentRowData) => {
               newData.date = value
-              const shares = recalculateShares({ ...currentRowData, date: value })
+              const mergedData = { ...currentRowData, ...newData, date: value }
+              const shares = recalculateShares(mergedData)
               // Only auto-set driver share if above minimum
               if (!shares.isBelowMinimum) {
                 newData.driverShare = shares.driverShare
@@ -694,7 +695,8 @@ export default function DailyRecordsPage() {
             )}
             setCellValue={(newData, value, currentRowData) => {
               newData.totalCollection = value
-              const shares = recalculateShares({ ...currentRowData, totalCollection: value })
+              const mergedData = { ...currentRowData, ...newData, totalCollection: value }
+              const shares = recalculateShares(mergedData)
               // Only auto-set driver share if above minimum
               if (!shares.isBelowMinimum) {
                 newData.driverShare = shares.driverShare
@@ -715,7 +717,8 @@ export default function DailyRecordsPage() {
             )}
             setCellValue={(newData, value, currentRowData) => {
               newData.dieselCost = value
-              const shares = recalculateShares({ ...currentRowData, dieselCost: value })
+              const mergedData = { ...currentRowData, ...newData, dieselCost: value }
+              const shares = recalculateShares(mergedData)
               // Only auto-set driver share if above minimum
               if (!shares.isBelowMinimum) {
                 newData.driverShare = shares.driverShare
@@ -733,7 +736,8 @@ export default function DailyRecordsPage() {
             cellRender={(data) => formatCurrency(data.value || 0)}
             setCellValue={(newData, value, currentRowData) => {
               newData.coopContribution = value
-              const shares = recalculateShares({ ...currentRowData, coopContribution: value })
+              const mergedData = { ...currentRowData, ...newData, coopContribution: value }
+              const shares = recalculateShares(mergedData)
               // Only auto-set driver share if above minimum
               if (!shares.isBelowMinimum) {
                 newData.driverShare = shares.driverShare
@@ -766,7 +770,9 @@ export default function DailyRecordsPage() {
             setCellValue={(newData, value, currentRowData) => {
               newData.driverShare = value
               // Recalculate assignee share when driver share is manually entered
-              const shares = recalculateShares({ ...currentRowData, driverShare: value }, value)
+              // Merge newData with currentRowData to get all current values from the editing form
+              const mergedData = { ...currentRowData, ...newData, driverShare: value }
+              const shares = recalculateShares(mergedData, value)
               newData.assigneeShare = shares.assigneeShare
             }}
           />
@@ -786,7 +792,8 @@ export default function DailyRecordsPage() {
             cellRender={(data) => formatCurrency(data.value || 0)}
             setCellValue={(newData, value, currentRowData) => {
               newData.otherExpenses = value
-              const shares = recalculateShares({ ...currentRowData, otherExpenses: value })
+              const mergedData = { ...currentRowData, ...newData, otherExpenses: value }
+              const shares = recalculateShares(mergedData)
               // Only auto-set driver share if above minimum
               if (!shares.isBelowMinimum) {
                 newData.driverShare = shares.driverShare
