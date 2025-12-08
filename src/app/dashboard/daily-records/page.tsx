@@ -207,19 +207,19 @@ export default function DailyRecordsPage() {
 
   // Helper to recalculate shares when values change
   const recalculateShares = useCallback((rowData: Partial<DailyRecord>, manualDriverShare?: number) => {
-    const collection = rowData.totalCollection || 0
-    const diesel = rowData.dieselCost || 0
-    const coop = rowData.coopContribution || 0
-    const other = rowData.otherExpenses || 0
+    const collection = Number(rowData.totalCollection) || 0
+    const diesel = Number(rowData.dieselCost) || 0
+    const coop = Number(rowData.coopContribution) || 0
+    const other = Number(rowData.otherExpenses) || 0
     const date = rowData.date ? new Date(rowData.date) : new Date()
     const isSunday = date.getDay() === 0
     const minimum = isSunday ? settings.sundayMinimum : settings.weekdayMinimum
 
     // Check if below minimum
     if (collection < minimum && collection > 0) {
-      // Below minimum: driver share is blank (0) for manual entry
-      // If manualDriverShare provided, use it; otherwise return 0
-      const driverShare = manualDriverShare ?? rowData.driverShare ?? 0
+      // Below minimum: driver share is for manual entry
+      // Use manualDriverShare if provided (including 0), otherwise use existing or default to 0
+      const driverShare = manualDriverShare !== undefined ? manualDriverShare : (Number(rowData.driverShare) || 0)
       const assigneeShare = collection - diesel - coop - other - driverShare
       return { driverShare, assigneeShare, isBelowMinimum: true }
     }

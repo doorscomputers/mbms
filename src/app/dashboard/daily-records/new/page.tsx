@@ -143,13 +143,15 @@ export default function NewDailyRecordPage() {
   )
 
   // Get the actual driver wage (override or computed)
-  const driverWageOverride = parseFloat(watchedValues.driverWageOverride || "0")
-  const actualDriverWage = isBelowMinimum && driverWageOverride > 0
+  // Use Number() with fallback to handle empty string and NaN cases
+  const driverWageOverride = Number(watchedValues.driverWageOverride) || 0
+  const actualDriverWage = isBelowMinimum
     ? driverWageOverride
     : computation.driverShare
 
   // Recalculate assignee share if using override
-  const actualAssigneeShare = isBelowMinimum && driverWageOverride > 0
+  // When below minimum: Assignee = Collection - Diesel - Coop - Expenses - DriverShare
+  const actualAssigneeShare = isBelowMinimum
     ? grossCollection - dieselCost - coop - expenses - driverWageOverride
     : computation.assigneeShare
 
@@ -231,9 +233,9 @@ export default function NewDailyRecordPage() {
       let finalAssigneeShare: number
       let finalExcessCollection: number
 
-      if (belowMin && data.driverWageOverride && parseFloat(data.driverWageOverride) > 0) {
+      if (belowMin) {
         // Using manual override for below-minimum collection
-        finalDriverWage = parseFloat(data.driverWageOverride)
+        finalDriverWage = parseFloat(data.driverWageOverride || "0")
         finalExcessCollection = 0
         finalAssigneeShare = collection - parseFloat(data.dieselCost) - parseFloat(data.coopContribution || "0") - parseFloat(data.otherExpenses || "0") - finalDriverWage
       } else {
