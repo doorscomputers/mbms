@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { postJson, putJson, deleteRequest, ApiError } from "@/lib/fetch-utils"
 import "devextreme/dist/css/dx.light.css"
 
 interface BusData {
@@ -305,20 +306,12 @@ export default function DailyRecordsPage() {
 
   const onRowInserted = async (e: { data: Partial<DailyRecord> }) => {
     try {
-      const res = await fetch("/api/daily-records", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(e.data),
-      })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Record added successfully")
-        fetchData()
-      } else {
-        toast.error(result.error || "Failed to add record")
-      }
-    } catch {
-      toast.error("Failed to add record")
+      await postJson("/api/daily-records", e.data)
+      toast.success("Record added successfully")
+      fetchData()
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Failed to add record"
+      toast.error(message)
     }
   }
 
@@ -328,37 +321,23 @@ export default function DailyRecordsPage() {
       const existingRecord = records.find((r) => r.id === e.key)
       const mergedData = { ...existingRecord, ...e.data }
 
-      const res = await fetch(`/api/daily-records/${e.key}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mergedData),
-      })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Record updated successfully")
-        fetchData()
-      } else {
-        toast.error(result.error || "Failed to update record")
-      }
-    } catch {
-      toast.error("Failed to update record")
+      await putJson(`/api/daily-records/${e.key}`, mergedData)
+      toast.success("Record updated successfully")
+      fetchData()
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Failed to update record"
+      toast.error(message)
     }
   }
 
   const onRowRemoved = async (e: { key: string }) => {
     try {
-      const res = await fetch(`/api/daily-records/${e.key}`, {
-        method: "DELETE",
-      })
-      const result = await res.json()
-      if (result.success) {
-        toast.success("Record deleted successfully")
-        fetchData()
-      } else {
-        toast.error(result.error || "Failed to delete record")
-      }
-    } catch {
-      toast.error("Failed to delete record")
+      await deleteRequest(`/api/daily-records/${e.key}`)
+      toast.success("Record deleted successfully")
+      fetchData()
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Failed to delete record"
+      toast.error(message)
     }
   }
 
