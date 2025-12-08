@@ -45,6 +45,8 @@ interface DailyRecord {
   assigneeShare: number
   otherExpenses: number
   tripCount: number
+  odometerStart: number
+  odometerEnd: number
   notes: string | null
 }
 
@@ -88,6 +90,8 @@ export function EditRecordDialog({
   const [assigneeShare, setAssigneeShare] = useState(0)
   const [otherExpenses, setOtherExpenses] = useState(0)
   const [tripCount, setTripCount] = useState(0)
+  const [odometerStart, setOdometerStart] = useState(0)
+  const [odometerEnd, setOdometerEnd] = useState(0)
   const [notes, setNotes] = useState("")
 
   // Computed state
@@ -111,6 +115,8 @@ export function EditRecordDialog({
       setAssigneeShare(record.assigneeShare)
       setOtherExpenses(record.otherExpenses)
       setTripCount(record.tripCount)
+      setOdometerStart(record.odometerStart || 0)
+      setOdometerEnd(record.odometerEnd || 0)
       setNotes(record.notes || "")
     }
   }, [record, open])
@@ -195,6 +201,8 @@ export function EditRecordDialog({
         assigneeShare,
         otherExpenses,
         tripCount,
+        odometerStart,
+        odometerEnd,
         notes: notes || null,
       })
       toast.success("Record updated successfully")
@@ -355,7 +363,7 @@ export function EditRecordDialog({
             </div>
           </div>
 
-          {/* Trip Count */}
+          {/* Trip Count and Odometer */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="trips">Trips</Label>
@@ -364,6 +372,30 @@ export function EditRecordDialog({
                 type="number"
                 value={tripCount}
                 onChange={(e) => setTripCount(Number(e.target.value) || 0)}
+              />
+            </div>
+          </div>
+
+          {/* Odometer Readings (Optional) */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="odoStart">Previous ODO (optional)</Label>
+              <Input
+                id="odoStart"
+                type="number"
+                placeholder="0"
+                value={odometerStart || ""}
+                onChange={(e) => setOdometerStart(Number(e.target.value) || 0)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="odoEnd">Current ODO (optional)</Label>
+              <Input
+                id="odoEnd"
+                type="number"
+                placeholder="0"
+                value={odometerEnd || ""}
+                onChange={(e) => setOdometerEnd(Number(e.target.value) || 0)}
               />
             </div>
           </div>

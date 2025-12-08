@@ -130,6 +130,8 @@ export async function PUT(
         otherExpenses: parseFloat(otherExpenses || '0'),
         assigneeShare: parseFloat(assigneeShare || '0'),
         tripCount: parseInt(body.tripCount || '0'),
+        odometerStart: parseFloat(body.odometerStart || '0'),
+        odometerEnd: parseFloat(body.odometerEnd || '0'),
         notes: notes || null,
       },
       include: {
